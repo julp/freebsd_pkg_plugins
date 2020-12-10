@@ -1,4 +1,4 @@
-# pkg plugins
+# FreeBSD pkg plugins
 
 ## Disclaimer
 
@@ -21,11 +21,11 @@ Not (yet) in ports tree, so:
 ```
 # as a regular user
 git clone https://github.com/julp/freebsd_pkg_plugins.git
-cmake -S pkg_plugins -B /tmp/pkg_plugins -DCMAKE_BUILD_TYPE=Debug
-make -C /tmp/pkg_plugins
+cmake -S freebsd_pkg_plugins -B /tmp/freebsd_pkg_plugins -DCMAKE_BUILD_TYPE=Debug
+make -C /tmp/freebsd_pkg_plugins
 
 # then, as root
-make -C /tmp/pkg_plugins install
+make -C /tmp/freebsd_pkg_plugins install
 mkdir -p `pkg config pkg_plugins_dir`
 cat >> /usr/local/etc/pkg.conf <<EOF
 PLUGINS: [
