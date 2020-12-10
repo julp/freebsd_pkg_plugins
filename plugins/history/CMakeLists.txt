@@ -59,6 +59,6 @@ target_link_libraries(test_date $<TARGET_OBJECTS:error>)
 
 configure_file(
     "config.h.in"
-    "config.h"
+    "${CMAKE_BINARY_DIR}/config.h"
     @ONLY
 )
