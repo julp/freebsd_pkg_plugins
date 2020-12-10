@@ -35,6 +35,5 @@ function(debug PREFIX)
 endfunction(debug)
 
 add_subdirectory(error)
-add_subdirectory(libparallelize)
 add_subdirectory(sqlite)
 add_subdirectory(plugins)
