@@ -438,6 +438,10 @@ maybe_year = (date_separator @ys year @ye)?;
 day = (("0"? | [1-2]) digit) | ([3][01]);
 month = ("0"? digit) | ("1" [0-2]);
 
+'today' {
+    return true;
+}
+
 @ys yyyy @ye whitespaces @ms monthtext @me whitespaces @ds day @de maybe_with_time eos {
     goto done;
 }
