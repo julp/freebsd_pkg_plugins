@@ -24,20 +24,26 @@ set(ZFS_SOURCES
 )
 
 set(ZFS_INCLURE_DIRS
-    /usr/src/cddl/contrib/opensolaris/lib/libzpool/common/
-    /usr/src/cddl/compat/opensolaris/include/
-    /usr/src/cddl/compat/opensolaris/lib/libumem/
-    /usr/src/sys/cddl/compat/opensolaris/
-    /usr/src/cddl/contrib/opensolaris/head/
-    /usr/src/cddl/contrib/opensolaris/lib/libuutil/common/
-    /usr/src/cddl/contrib/opensolaris/lib/libzfs/common/
-    /usr/src/cddl/contrib/opensolaris/lib/libzfs_core/common/
-    /usr/src/cddl/contrib/opensolaris/lib/libumem/common/
-    /usr/src/cddl/contrib/opensolaris/lib/libnvpair/
-    /usr/src/sys/cddl/contrib/opensolaris/uts/common/
-    /usr/src/sys/cddl/contrib/opensolaris/uts/common/fs/zfs/
-    /usr/src/sys/cddl/contrib/opensolaris/uts/common/sys/
-    /usr/src/sys/cddl/contrib/opensolaris/common/zfs/
+    # FreeBSD 13
+    /usr/src/sys/contrib/openzfs/include/ # libzfs.h + libuutil.h + libzfs_core.h + libnvpair.h + zfs_prop.h
+    /usr/src/sys/contrib/openzfs/lib/libspl/include/ # umem.h + sys/types.h
+    /usr/src/sys/contrib/openzfs/lib/libspl/include/os/freebsd/sys/ # mnttab.h
+    /usr/src/sys/cddl/compat/opensolaris/ # mnttab.h
+    # FreeBSD 12
+    /usr/src/cddl/contrib/opensolaris/lib/libzpool/common/ # sys/zfs_context.h ?
+    /usr/src/cddl/compat/opensolaris/include/ # mnttab.h
+    /usr/src/cddl/compat/opensolaris/lib/libumem/ # umem.h
+    /usr/src/sys/cddl/compat/opensolaris/ # for its sys/types.h ?
+    /usr/src/cddl/contrib/opensolaris/head/ # ? https://svnweb.freebsd.org/base/releng/12.2/cddl/contrib/opensolaris/head/
+    /usr/src/cddl/contrib/opensolaris/lib/libuutil/common/ # libuutil.h
+    /usr/src/cddl/contrib/opensolaris/lib/libzfs/common/ # libzfs.h
+    /usr/src/cddl/contrib/opensolaris/lib/libzfs_core/common/ # libzfs_core.h
+    /usr/src/cddl/contrib/opensolaris/lib/libumem/common/ # never existed ?
+    /usr/src/cddl/contrib/opensolaris/lib/libnvpair/ # libnvpair.h
+    /usr/src/sys/cddl/contrib/opensolaris/uts/common/ # no .h ?
+    /usr/src/sys/cddl/contrib/opensolaris/uts/common/fs/zfs/ # zfeature.h ?
+    /usr/src/sys/cddl/contrib/opensolaris/uts/common/sys/ # nvpair.h ?
+    /usr/src/sys/cddl/contrib/opensolaris/common/zfs/ # zfs_prop.h
 )
 
 #string(REGEX MATCH "^[0-9]+" MAJOR_SYSTEM_VERSION "${CMAKE_SYSTEM_VERSION}")
