@@ -2,9 +2,9 @@
 
 Provides ZFS and BE support.
 
-Status: experimental, beta testers welcome.
+Status: **experimental** (use it at your own risk), beta testers welcome.
 
-Automatically takes a snapshot (ZFS) or creates a boot environment (BE) before actually running `pkg upgrade` of the name pkg\_pre\_upgrade\_<date>\_<time>.
+Automatically takes a snapshot (ZFS) or creates a boot environment (BE) before actually running `pkg upgrade` of the name pkg\_pre\_upgrade\_\<date>\_\<time>.
 
 Also provides a `pkg zint rollback` command to revert your active boot environment to the latest pkg\_pre\_upgrade\_\* BE (ZFS not supported, only BE - for now) (of course, you need to reboot to apply the change) allowing you to return prior to `pkg upgrade` if something turned really bad.
 
