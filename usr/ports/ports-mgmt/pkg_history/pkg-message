@@ -1,0 +1,10 @@
+[
+{
+  type: install
+  message: "To enable pkg_history plugin you need to add history to PLUGINS in /usr/local/etc/pkg.conf"
+}
+{
+  type: remove
+  message: "To disable pkg_history plugin you need to remove history from PLUGINS in /usr/local/etc/pkg.conf"
+}
+]

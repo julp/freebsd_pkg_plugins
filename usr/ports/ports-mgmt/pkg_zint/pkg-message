@@ -1,0 +1,10 @@
+[
+{
+  type: install
+  message: "To enable pkg_zint plugin you need to add zint to PLUGINS in /usr/local/etc/pkg.conf"
+}
+{
+  type: remove
+  message: "To disable pkg_zint plugin you need to remove zint from PLUGINS in /usr/local/etc/pkg.conf"
+}
+]

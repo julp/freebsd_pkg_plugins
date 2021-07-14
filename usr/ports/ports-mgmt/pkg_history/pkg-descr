@@ -1,0 +1,4 @@
+A pkg plugin to create a searchable history of pkg commands and their effects
+(installed, updated, deleted packages)
+
+WWW: https://github.com/julp/freebsd_pkg_plugins

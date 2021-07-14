@@ -1,0 +1,4 @@
+A pkg plugin to automatically create a boot environment (BE) or take
+a snapshot (raw ZFS) before running pkg upgrade.
+
+WWW: https://github.com/julp/freebsd_pkg_plugins

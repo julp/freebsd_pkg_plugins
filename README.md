@@ -9,7 +9,7 @@
 
 * cmake
 * a C99 compiler
-* re2c >= 2.0.0 (note: not available in FreeBSD's ports)
+* re2c >= 2.0.0 (note: not available in FreeBSD's ports but you can use the files from usr/ports/devel/re2c/)
 * pkg >= 1.5.10
 * sqlite3 (history)
 * FreeBSD sources (zfs_integration)

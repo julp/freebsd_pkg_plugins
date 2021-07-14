@@ -1,0 +1,3 @@
+A pkg plugin to restart services on update and stop them on removal.
+
+WWW: https://github.com/julp/freebsd_pkg_plugins

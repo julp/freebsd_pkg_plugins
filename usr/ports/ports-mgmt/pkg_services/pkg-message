@@ -1,0 +1,10 @@
+[
+{
+  type: install
+  message: "To enable pkg_services plugin you need to add services to PLUGINS in /usr/local/etc/pkg.conf"
+}
+{
+  type: remove
+  message: "To disable pkg_services plugin you need to remove services from PLUGINS in /usr/local/etc/pkg.conf"
+}
+]
