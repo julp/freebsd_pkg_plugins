@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 2.8.3...3.20.5)
 
 find_package(SQLite3 REQUIRED)
 #debug("SQLite3")
