@@ -12,6 +12,7 @@
 #ifdef HAVE_BE
 extern const backup_method_t be_method;
 #endif /* HAVE_BE */
+extern const backup_method_t none_method;
 extern const backup_method_t raw_zfs_method;
 
 const backup_method_t *available_methods[] = {
@@ -19,6 +20,7 @@ const backup_method_t *available_methods[] = {
     &be_method,
 #endif /* HAVE_BE */
     &raw_zfs_method,
+    &none_method,
 };
 
 static void *method_data;
@@ -26,8 +28,7 @@ static paths_to_check_t *ptc;
 static struct pkg_plugin *self;
 static const backup_method_t *method;
 
-static char NAME[] = "zint";
-static char VERSION[] = "0.2.0";
+static char VERSION[] = "0.2.1";
 static char DESCRIPTION[] = "ZFS/BE integration to provide recovery";
 
 static pkg_error_t find_backup_method(char **error)
@@ -50,9 +51,6 @@ static pkg_error_t find_backup_method(char **error)
                 break;
             }
         }
-    }
-    if (NULL == method && EPKG_FATAL != pkg_status) {
-        fprintf(stderr, "%s: sorry, you are on your own, nothing I can't do for you, it seems that %s is not located on a ZFS filesystem\n", NAME, localbase());
     }
 
     return pkg_status;
@@ -237,6 +235,7 @@ int pkg_register_cmd(int i, const char **name, const char **desc, int (**exec)(i
 {
     assert(0 == i);
 
+    (void) i; // quiet compiler when assert are disabled
     *name = NAME;
     *desc = DESCRIPTION;
     *exec = pkg_zint_main;
@@ -246,7 +245,7 @@ int pkg_register_cmd(int i, const char **name, const char **desc, int (**exec)(i
 
 int pkg_plugin_shutdown(struct pkg_plugin *UNUSED(p))
 {
-    if (NULL != method) {
+    if (NULL != method && NULL != method->fini) {
         method->fini(method_data);
     }
     if (NULL != ptc) {
