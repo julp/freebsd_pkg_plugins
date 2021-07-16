@@ -1,5 +1,5 @@
 PORTNAME=	pkg_zint
-PORTVERSION=	0.2.0
+PORTVERSION=	0.2.1
 #PORTREVISION=	1
 CATEGORIES=	ports-mgmt
 
@@ -9,14 +9,12 @@ COMMENT=	Pkg plugin to automatically "snapshot" (BE or raw ZFS) before upgrade
 LICENSE=	BSD2CLAUSE
 
 USES=		cmake
-#CMAKE_ON=
-#CMAKE_OFF=
-#CMAKE_ARGS=
+CMAKE_ARGS=	-DPLUGINS:STRING=zint
 
 USE_GITHUB=	yes
 GH_ACCOUNT=	julp
 GH_PROJECT=	freebsd_pkg_plugins
-GH_TAGNAME=	e320b5b
+GH_TAGNAME=	ff93da0
 
 PLIST_FILES=	lib/pkg/zint.so
 

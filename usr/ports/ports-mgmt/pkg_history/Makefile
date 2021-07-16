@@ -11,14 +11,12 @@ LICENSE=	BSD2CLAUSE
 BUILD_DEPENDS=	re2c:devel/re2c
 
 USES=		cmake sqlite
-#CMAKE_ON=
-#CMAKE_OFF=
-#CMAKE_ARGS=
+CMAKE_ARGS=	-DPLUGINS:STRING=history
 
 USE_GITHUB=	yes
 GH_ACCOUNT=	julp
 GH_PROJECT=	freebsd_pkg_plugins
-GH_TAGNAME=	e320b5b
+GH_TAGNAME=	ff93da0
 
 PLIST_FILES=	lib/pkg/history.so
 
