@@ -22,14 +22,26 @@ Not (yet) in ports tree, so:
 # as a regular user
 git clone https://github.com/julp/freebsd_pkg_plugins.git
 cmake -S freebsd_pkg_plugins -B /tmp/freebsd_pkg_plugins -DCMAKE_BUILD_TYPE=Debug
-make -C /tmp/freebsd_pkg_plugins
 
+# to build on FreeBSD as a port/package and pretending I previously was the user julp and ran git clone in my home
+# as root
+echo 'OVERLAYS+=/home/julp/freebsd_pkg_plugins/usr/ports' >> /etc/make.conf
+# replace pkg_zint by the desired plugin (pkg_history or pkg_services)
+# (have to be run as root if /usr/ports/distfiles is not writable to user)
+make -C /home/julp/freebsd_pkg_plugins/usr/ports/ports-mgmt/pkg_zint makesum
+# back to regular user
+make -C /home/julp/freebsd_pkg_plugins/usr/ports/ports-mgmt/pkg_zint
+# then, as root
+make -C /home/julp/freebsd_pkg_plugins/usr/ports/ports-mgmt/pkg_zint install
+
+# generic procedure
+make -C /tmp/freebsd_pkg_plugins
 # then, as root
 make -C /tmp/freebsd_pkg_plugins install
 mkdir -p `pkg config pkg_plugins_dir`
 cat >> /usr/local/etc/pkg.conf <<EOF
 PLUGINS: [
-    zfsint,
+    zint,
     history,
     services,
 ]
