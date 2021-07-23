@@ -14,7 +14,7 @@ CMAKE_ARGS=	-DPLUGINS:STRING=zint
 USE_GITHUB=	yes
 GH_ACCOUNT=	julp
 GH_PROJECT=	freebsd_pkg_plugins
-GH_TAGNAME=	ff93da0
+GH_TAGNAME=	420d12d
 
 PLIST_FILES=	lib/pkg/zint.so
 
