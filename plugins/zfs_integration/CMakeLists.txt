@@ -110,6 +110,6 @@ pkg_plugin(
 
 configure_file(
     "config.h.in"
-    "config.h"
+    "${CMAKE_BINARY_DIR}/config.h"
     @ONLY
 )
