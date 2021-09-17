@@ -36,7 +36,7 @@ macro(pkg_plugin)
         # univalued parameters (default value: "")
         "NAME;VERSION"
         # multivalued parameters (default value: "")
-        "INCLUDE_DIRECTORIES;LIBRARIES;SOURCES"
+        "INCLUDE_DIRECTORIES;LIBRARIES;SOURCES;DEFINITIONS"
         ${ARGN}
     )
 
@@ -56,7 +56,7 @@ macro(pkg_plugin)
         _set_version("${PKG_PLUGIN_VERSION}" "${PKG_PLUGIN_NAME}")
     endif(PKG_PLUGIN_VERSION)
 
-    # TODO: version + configure_file ?
+    # TODO: version ?
     set(PKG_PLUGIN_INCLUDE_DIRS )
     list(APPEND PKG_PLUGIN_INCLUDE_DIRS ${PROJECT_SOURCE_DIR})
     list(APPEND PKG_PLUGIN_INCLUDE_DIRS ${PROJECT_BINARY_DIR})
@@ -65,6 +65,7 @@ macro(pkg_plugin)
 
     set_target_properties(${PKG_PLUGIN_NAME} PROPERTIES
         PREFIX ""
+        COMPILE_DEFINITIONS "${PKG_PLUGIN_DEFINITIONS}"
         INCLUDE_DIRECTORIES "${PKG_PLUGIN_INCLUDE_DIRS}"
     )
 

@@ -3,7 +3,6 @@
 #include <time.h>
 #include <pkg.h>
 
-#include "config.h"
 #include "common.h"
 #include "error.h"
 #include "shared/os.h"
