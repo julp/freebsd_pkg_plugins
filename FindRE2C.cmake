@@ -111,17 +111,18 @@ if(${RE2C_PUBLIC_VAR_NS}_EXECUTABLE)
         )
     endmacro(RE2C_TARGET)
 
-    include(FindPackageHandleStandardArgs)
-    if(${RE2C_PUBLIC_VAR_NS}_FIND_REQUIRED AND NOT ${RE2C_PUBLIC_VAR_NS}_FIND_QUIETLY)
-        find_package_handle_standard_args(
-            ${RE2C_PUBLIC_VAR_NS}
-            REQUIRED_VARS ${RE2C_PUBLIC_VAR_NS}_EXECUTABLE
-            VERSION_VAR ${RE2C_PUBLIC_VAR_NS}_VERSION
-        )
-    else(${RE2C_PUBLIC_VAR_NS}_FIND_REQUIRED AND NOT ${RE2C_PUBLIC_VAR_NS}_FIND_QUIETLY)
-        find_package_handle_standard_args(${RE2C_PUBLIC_VAR_NS} "re2c not found" ${RE2C_PUBLIC_VAR_NS}_EXECUTABLE)
-    endif(${RE2C_PUBLIC_VAR_NS}_FIND_REQUIRED AND NOT ${RE2C_PUBLIC_VAR_NS}_FIND_QUIETLY)
 endif(${RE2C_PUBLIC_VAR_NS}_EXECUTABLE)
+
+include(FindPackageHandleStandardArgs)
+if(${RE2C_PUBLIC_VAR_NS}_FIND_REQUIRED AND NOT ${RE2C_PUBLIC_VAR_NS}_FIND_QUIETLY)
+    find_package_handle_standard_args(
+        ${RE2C_PUBLIC_VAR_NS}
+        REQUIRED_VARS ${RE2C_PUBLIC_VAR_NS}_EXECUTABLE
+        VERSION_VAR ${RE2C_PUBLIC_VAR_NS}_VERSION
+    )
+else(${RE2C_PUBLIC_VAR_NS}_FIND_REQUIRED AND NOT ${RE2C_PUBLIC_VAR_NS}_FIND_QUIETLY)
+    find_package_handle_standard_args(${RE2C_PUBLIC_VAR_NS} "re2c not found" ${RE2C_PUBLIC_VAR_NS}_EXECUTABLE)
+endif(${RE2C_PUBLIC_VAR_NS}_FIND_REQUIRED AND NOT ${RE2C_PUBLIC_VAR_NS}_FIND_QUIETLY)
 
 # IN (args)
 re2c_debug("FIND_REQUIRED")
