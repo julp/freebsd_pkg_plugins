@@ -58,12 +58,12 @@ static pkg_error_t find_backup_method(char **error)
 static bool take_snapshot(const char *scheme, char **error)
 {
     bool ok;
-    char snapshot[ZFS_MAX_NAME_LEN];
 
     ok = false;
     do {
         time_t t;
         struct tm ltm = { 0 };
+        char snapshot[ZFS_MAX_NAME_LEN];
 
         if (((time_t) -1) == time(&t)) {
             set_generic_error(error, "time(3) failed");
@@ -95,7 +95,7 @@ static struct option pkg_zint_long_options[] = {
 
 static void pkg_zint_usage(void)
 {
-    fprintf(stderr, "usage: pkg %s\n", NAME);
+    fprintf(stderr, "usage: pkg %s rollback\n", NAME);
 }
 
 static int pkg_zint_main(int argc, char **argv)

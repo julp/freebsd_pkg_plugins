@@ -105,7 +105,7 @@ bool str_starts_with(const char *string, const char *prefix)
 static bool be_rollback(void *data, char **error)
 {
     bool ok;
-    bool temporary = false;
+    bool temporary = false; // to be passed as argument?
     nvlist_t *props;
     libbe_handle_t *lbh;
 
@@ -160,6 +160,7 @@ static bool be_rollback(void *data, char **error)
         } else if (BE_ERR_SUCCESS != be_activate(lbh, last_bootenv_name, temporary)) {
 // debug("%s = %s", last_bootenv_name, ctime((time_t *) &last_bootenv_creation));
             set_be_error(error, lbh, "failed to activate BE '%s'", last_bootenv_name);
+            break;
         }
         ok = true;
     } while (false);
