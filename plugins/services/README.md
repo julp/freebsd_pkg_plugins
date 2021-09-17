@@ -17,7 +17,7 @@ Default blocklist (services to never restart automatically) is: `sddm, hald, dbu
 To configure your own:
 
 ```
-cat >> /usr/local/etc/pkg/services.conf <<EOF
+cat > /usr/local/etc/pkg/services.conf <<EOF
 BLOCKLIST: [
   sddm,
   hald,
