@@ -33,6 +33,8 @@ static const char *solve_names[] = {
     D(PKG_SOLVED_UPGRADE_INSTALL),
 };
 
+#undef D
+
 static int handle_hooks(void *data, struct pkgdb *UNUSED(pkg_db))
 {
     pkg_error_t status;
@@ -91,6 +93,8 @@ static const struct {
     H(PKG_PLUGIN_HOOK_POST_AUTOREMOVE),
 //     PKG_PLUGIN_HOOK_PKGDB_CLOSE_RW,
 };
+
+#undef H
 
 int pkg_plugin_init(struct pkg_plugin *p)
 {

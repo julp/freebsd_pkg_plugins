@@ -590,6 +590,8 @@ static const struct {
 //     PKG_PLUGIN_HOOK_PKGDB_CLOSE_RW,
 };
 
+#undef H
+
 int pkg_plugin_init(struct pkg_plugin *p)
 {
     size_t i;
