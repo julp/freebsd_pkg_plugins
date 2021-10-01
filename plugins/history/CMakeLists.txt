@@ -1,8 +1,10 @@
 cmake_minimum_required(VERSION 2.8.3...3.20.5)
 
-find_package(RE2C 2 REQUIRED)
+find_package(RE2C 2 QUIET)
 
-RE2C_TARGET(NAME "re2c_date_grammar" INPUT "${CMAKE_CURRENT_SOURCE_DIR}/date.re" OUTPUT "${CMAKE_BINARY_DIR}/date_scanner.gen.c" OPTIONS "-d8")
+if(RE2C_FOUND)
+    RE2C_TARGET(NAME "re2c_date_grammar" INPUT "${CMAKE_CURRENT_SOURCE_DIR}/date.re" OUTPUT "${CMAKE_BINARY_DIR}/date_scanner.gen.c" OPTIONS "-d8")
+endif(RE2C_FOUND)
 
 set(
     HISTORY_INCLUDE_DIRECTORIES
@@ -22,12 +24,18 @@ set(
 )
 
 set(COMMON_SOURCES
-    ${CMAKE_BINARY_DIR}/date_scanner.gen.c
+    #${CMAKE_BINARY_DIR}/date_scanner.gen.c
         ${PROJECT_SOURCE_DIR}/kissc/ascii_case.c
     ${PROJECT_SOURCE_DIR}/kissc/dlist.c
     ${PROJECT_SOURCE_DIR}/kissc/iterator.c
     ${PROJECT_SOURCE_DIR}/kissc/parsenum.c
 )
+
+if(RE2C_FOUND)
+    list(APPEND COMMON_SOURCES ${CMAKE_BINARY_DIR}/date_scanner.gen.c)
+else(RE2C_FOUND)
+    list(APPEND COMMON_SOURCES date_scanner.gen.c)
+endif(RE2C_FOUND)
 
 set(
     HISTORY_SOURCES
