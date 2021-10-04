@@ -15,7 +15,7 @@ static char NAME[] = "services";
 static char VERSION[] = "0.6.0";
 static char DESCRIPTION[] = "Management of services";
 
-static char CFG_BLOCKLIST[] = "blocklist";
+static char CFG_BLOCKLIST[] = "BLOCKLIST";
 
 static char pkg_rcorder_optstr[] = "ork:s:";
 
@@ -408,6 +408,7 @@ int pkg_plugin_init(struct pkg_plugin *p)
     pkg_plugin_set(p, PKG_PLUGIN_VERSION, VERSION);
 
     pkg_plugin_conf_add(p, PKG_ARRAY, CFG_BLOCKLIST, "sddm, hald, dbus");
+    pkg_plugin_parse(p);
 
     for (i = 0; i < ARRAY_SIZE(hooks); i++) {
         if (EPKG_OK != pkg_plugin_hook_register(p, hooks[i].value, handle_hooks)) {
