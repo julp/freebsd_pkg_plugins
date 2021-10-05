@@ -12,7 +12,7 @@
 static struct pkg_plugin *self;
 
 static char NAME[] = "services";
-static char VERSION[] = "0.6.0";
+static char VERSION[] = "0.6.1";
 static char DESCRIPTION[] = "Management of services";
 
 static char CFG_BLOCKLIST[] = "BLOCKLIST";
