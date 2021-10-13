@@ -110,7 +110,6 @@ if(${RE2C_PUBLIC_VAR_NS}_EXECUTABLE)
             DEPENDS ${PARSED_ARGS_OUTPUT}
         )
     endmacro(RE2C_TARGET)
-
 endif(${RE2C_PUBLIC_VAR_NS}_EXECUTABLE)
 
 include(FindPackageHandleStandardArgs)
