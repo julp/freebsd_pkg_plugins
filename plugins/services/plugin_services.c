@@ -11,8 +11,6 @@
 
 static struct pkg_plugin *self;
 
-static char NAME[] = "services";
-static char VERSION[] = "0.6.1";
 static char DESCRIPTION[] = "Management of services";
 
 static char CFG_BLOCKLIST[] = "BLOCKLIST";
@@ -405,7 +403,7 @@ int pkg_plugin_init(struct pkg_plugin *p)
 
     pkg_plugin_set(p, PKG_PLUGIN_NAME, NAME);
     pkg_plugin_set(p, PKG_PLUGIN_DESC, DESCRIPTION);
-    pkg_plugin_set(p, PKG_PLUGIN_VERSION, VERSION);
+    pkg_plugin_set(p, PKG_PLUGIN_VERSION, SERVICES_VERSION_STRING);
 
     pkg_plugin_conf_add(p, PKG_ARRAY, CFG_BLOCKLIST, "sddm, hald, dbus");
     pkg_plugin_parse(p);

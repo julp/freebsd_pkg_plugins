@@ -102,9 +102,9 @@ int pkg_plugin_init(struct pkg_plugin *p)
 
     self = p;
 
-    pkg_plugin_set(p, PKG_PLUGIN_NAME, "verbose");
+    pkg_plugin_set(p, PKG_PLUGIN_NAME, NAME);
     pkg_plugin_set(p, PKG_PLUGIN_DESC, "a plugin for development and testing");
-    pkg_plugin_set(p, PKG_PLUGIN_VERSION, "1.0.0");
+    pkg_plugin_set(p, PKG_PLUGIN_VERSION, VERBOSE_VERSION_STRING);
 
     for (i = 0; i < ARRAY_SIZE(hooks); i++) {
         if (EPKG_OK != pkg_plugin_hook_register(p, hooks[i].value, handle_hooks)) {

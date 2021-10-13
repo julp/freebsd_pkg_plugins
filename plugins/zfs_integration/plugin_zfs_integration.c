@@ -27,7 +27,6 @@ static paths_to_check_t *ptc;
 static struct pkg_plugin *self;
 static const backup_method_t *method;
 
-static char VERSION[] = "0.2.1";
 static char DESCRIPTION[] = "ZFS/BE integration to provide recovery";
 
 static pkg_error_t find_backup_method(char **error)
@@ -192,7 +191,7 @@ int pkg_plugin_init(struct pkg_plugin *p)
 
     pkg_plugin_set(p, PKG_PLUGIN_NAME, NAME);
     pkg_plugin_set(p, PKG_PLUGIN_DESC, DESCRIPTION);
-    pkg_plugin_set(p, PKG_PLUGIN_VERSION, VERSION);
+    pkg_plugin_set(p, PKG_PLUGIN_VERSION, ZINT_VERSION_STRING);
 
     do {
         status = EPKG_FATAL;

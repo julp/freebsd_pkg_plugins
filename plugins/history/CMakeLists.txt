@@ -64,9 +64,3 @@ set_target_properties(test_date PROPERTIES
     INCLUDE_DIRECTORIES "${HISTORY_INCLUDE_DIRECTORIES};${PROJECT_SOURCE_DIR};${PROJECT_BINARY_DIR}"
 )
 target_link_libraries(test_date $<TARGET_OBJECTS:error>)
-
-configure_file(
-    "config.h.in"
-    "${CMAKE_BINARY_DIR}/config.h"
-    @ONLY
-)

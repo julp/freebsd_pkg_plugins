@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.8.3...3.20.5)
 
-set(ZINT_DEFINITIONS NAME="zint")
+set(ZINT_DEFINITIONS )
 
 find_path(
     BE_INCLUDE_DIR
@@ -13,9 +13,6 @@ if(BE_INCLUDE_DIR)
         NAMES be
     )
 endif(BE_INCLUDE_DIR)
-
-#message("BE_LIBRARY = ${BE_LIBRARY}")
-#message("BE_INCLUDE_DIR = ${BE_INCLUDE_DIR}")
 
 set(ZFS_SOURCES
     zfs.c
@@ -103,8 +100,15 @@ endif(BE_INCLUDE_DIR AND BE_LIBRARY)
 pkg_plugin(
     INSTALL
     NAME zint
+    VERSION "0.3.0"
     SOURCES ${ZINT_SOURCES}
     LIBRARIES ${ZINT_LIBRARIES}
     DEFINITIONS ${ZINT_DEFINITIONS}
     INCLUDE_DIRECTORIES ${ZINT_INCLUDE_DIRECTORIES}
+)
+
+# copy COMPILE_DEFINITIONS from "zint" to "zfs" to inherit *_VERSION_*
+get_target_property(ZINT_COMPILE_DEFINITIONS zint COMPILE_DEFINITIONS)
+set_target_properties(zfs PROPERTIES
+    COMPILE_DEFINITIONS "${ZINT_COMPILE_DEFINITIONS}"
 )

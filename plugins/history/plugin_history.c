@@ -4,7 +4,6 @@
 #include <time.h>
 #include <pkg.h>
 
-#include "config.h"
 #include "common.h"
 #include "error/error.h"
 #include "sqlite/sqlite.h"
@@ -17,7 +16,6 @@
 
 static struct pkg_plugin *self;
 
-static char NAME[] = "history";
 static char DESCRIPTION[] = "Keep track of operations on packages";
 
 #define TABLE_COMMANDS "history_commands"
