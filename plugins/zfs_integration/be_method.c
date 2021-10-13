@@ -86,10 +86,9 @@ bool str_starts_with(const char *string, const char *prefix)
     return prefix_len <= strlen(string) && 0 == strncmp(string, prefix, prefix_len);
 }
 
-static bool be_rollback(void *data, char **error)
+static bool be_rollback(void *data, bool temporary, char **error)
 {
     bool ok;
-    bool temporary = false; // to be passed as argument?
     nvlist_t *props;
     libbe_handle_t *lbh;
 

@@ -15,5 +15,5 @@ typedef struct {
     bm_code_t (*suitable)(paths_to_check_t *, void **, char **);
     void (*fini)(void *);
     bool (*snapshot)(const char *, void *, char **);
-    bool (*rollback)(void *, char **);
+    bool (*rollback)(void *, bool, char **);
 } backup_method_t;

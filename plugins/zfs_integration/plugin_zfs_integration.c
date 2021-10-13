@@ -130,7 +130,7 @@ static int pkg_zint_main(int argc, char **argv)
             pkg_zint_usage();
             break;
         }
-        if (!method->rollback(/*temporary, */method_data, &error)) {
+        if (!method->rollback(method_data, temporary, &error)) {
             break;
         }
         status = EPKG_OK;

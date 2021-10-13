@@ -19,7 +19,7 @@ static bool none_take_snapshot(const char *UNUSED(snapshot), void *UNUSED(data),
     return true;
 }
 
-static bool none_rollback(void *UNUSED(data), char **error)
+static bool none_rollback(void *UNUSED(data), bool UNUSED(temporary), char **error)
 {
     set_generic_error(error, "a rollback is not possible on a non-ZFS system");
 

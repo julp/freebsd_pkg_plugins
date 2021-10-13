@@ -81,7 +81,7 @@ static bool raw_zfs_snapshot(const char *snapshot, void *data, char **error)
     return ok;
 }
 
-static bool raw_zfs_rollback(void *UNUSED(data), char **error)
+static bool raw_zfs_rollback(void *UNUSED(data), bool UNUSED(temporary), char **error)
 {
     set_generic_error(error, "this functionnality is not (yet) implemented for raw ZFS");
 
