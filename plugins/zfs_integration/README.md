@@ -10,6 +10,8 @@ Also provides a `pkg zint rollback` command to revert your active boot environme
 
 The plugin automatically choose between BE and ZFS by probing if /, /usr/local and /var/db/pkg are all on ZFS and are on the same file systems. If this is the case, BE is used else ZFS if at least /usr/local is a ZFS file system. The snapshot will be recursive if / is also on ZFS and on the same pool as /usr/local.
 
+Example from my own desktop machine:
+
 ```
 # bectl list
 BE                                  Active Mountpoint Space Created
@@ -19,3 +21,9 @@ pkg_pre_upgrade_2021-09-09_16:10:15 -      -          144M  2021-09-09 16:10
 pkg_pre_upgrade_2021-09-11_15:06:25 -      -          40.7M 2021-09-11 15:06
 pkg_pre_upgrade_2021-09-14_16:21:24 -      -          41.3M 2021-09-14 16:21
 ```
+
+## Configuration
+
+Note: keys are case sensitive, they have to be uppercased in ```\`pkg config PLUGINS_CONF_DIR\`/zint.conf```
+
+* `FORCE` (boolean, default: `false`): when `false`, do not create a BE/snapshot if the `pkg` command does not actually imply any change. Set it to `true` to create a BE/snapshot anyway, you might want to turn it on if you run more often `pkg` than you create BE/snapshot

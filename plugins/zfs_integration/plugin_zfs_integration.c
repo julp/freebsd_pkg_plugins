@@ -22,6 +22,7 @@ const backup_method_t *available_methods[] = {
     &none_method,
 };
 
+static bool force;
 static void *method_data;
 static paths_to_check_t *ptc;
 static struct pkg_plugin *self;
@@ -152,7 +153,7 @@ static int handle_upgrade_hook(const char *scheme, void *data/*, struct pkgdb *U
     status = EPKG_FATAL;
     jobs = (struct pkg_jobs *) data;
     do {
-        if (0 == pkg_jobs_count(jobs)) {
+        if (0 == pkg_jobs_count(jobs) && !force) {
             status = EPKG_OK;
             break;
         }
@@ -181,6 +182,8 @@ static int handle_post_upgrade_hook(void *data, struct pkgdb *UNUSED(db))
 }
 #endif
 
+static char CFG_FORCE[] = "FORCE";
+
 int pkg_plugin_init(struct pkg_plugin *p)
 {
     char *error;
@@ -193,8 +196,21 @@ int pkg_plugin_init(struct pkg_plugin *p)
     pkg_plugin_set(p, PKG_PLUGIN_DESC, DESCRIPTION);
     pkg_plugin_set(p, PKG_PLUGIN_VERSION, ZINT_VERSION_STRING);
 
+    /**
+     * Default configuration:
+     *
+     * FORCE = false;
+     */
+    pkg_plugin_conf_add(p, PKG_BOOL, CFG_FORCE, "false");
+    pkg_plugin_parse(p);
+
     do {
+        const pkg_object *config, *object;
+
         status = EPKG_FATAL;
+        config = pkg_plugin_conf(p);
+        object = pkg_object_find(config, CFG_FORCE);
+        force = pkg_object_bool(object);
         if (NULL == (ptc = prober_create(&error))) {
             break;
         }
