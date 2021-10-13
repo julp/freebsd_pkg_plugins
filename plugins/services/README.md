@@ -26,6 +26,8 @@ BLOCKLIST: [
 EOF
 ```
 
+Note: keys are case sensitive, they have to be uppercased in ```\`pkg config PLUGINS_CONF_DIR\`/services.conf```
+
 Services from deinstalled packages are also automatically stopped before removal.
 
 Also provides commands `pkg services` and `pkg rcorder`.
