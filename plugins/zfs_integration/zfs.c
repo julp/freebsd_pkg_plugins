@@ -271,7 +271,8 @@ bool uzfs_retain_snapshots(uzfs_fs_t *fs, size_t count, size_t *deleted, char **
  * Take a snapshot of a filesystem, equivalent to: zfs snapshot *filesystem*@$(date "+*scheme*")
  *
  * @param filesystem the name of the filesystem
- * @param scheme the name of the snapshot, strftime(3) modifiers are allowed and substitued
+ * @param scheme the name of the snapshot
+ * @param strftime_scheme when set to `true`, substitute strftime(3) modifiers in *scheme*
  * @param name an output buffer where to put the name of the snapshot (recommanded size: ZFS_MAX_NAME_LEN)
  * @param name_size the size of *name*
  * @param recursive `true` to also snapshots children filesystems
@@ -279,7 +280,7 @@ bool uzfs_retain_snapshots(uzfs_fs_t *fs, size_t count, size_t *deleted, char **
  *
  * @return `false` on failure
  */
-bool uzfs_snapshot(uzfs_fs_t *fs, const char *scheme, char *name, size_t name_size, bool recursive, char **error)
+bool uzfs_snapshot(uzfs_fs_t *fs, const char *scheme, bool strftime_scheme, char *name, size_t name_size, bool recursive, char **error)
 {
     bool ok;
 
@@ -303,7 +304,7 @@ bool uzfs_snapshot(uzfs_fs_t *fs, const char *scheme, char *name, size_t name_si
         // NOTE: no check, at least we just overwrite the '\0' and we recheck buffer size below
         *w++ = '@';
         // NOTE: this test is not really usefull, this is a just to create a subscope/compartimentize time stuffs
-        if (NULL != strchr(scheme, '%')) {
+        if (strftime_scheme) {
             time_t t;
             struct tm ltm = { 0 };
 
@@ -334,7 +335,7 @@ bool uzfs_snapshot(uzfs_fs_t *fs, const char *scheme, char *name, size_t name_si
         }
         ok = 0 == zfs_snapshot(lh, name, recursive, NULL);
         if (!ok) {
-            set_zfs_error(error, lh, "zfs_snapshot failed");
+            set_zfs_error(error, lh, "zfs_snapshot failed to create snapshot '%s'", name);
         }
     } while (false);
 

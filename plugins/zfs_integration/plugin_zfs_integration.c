@@ -73,7 +73,7 @@ static bool take_snapshot(const char *scheme, char **error)
             break;
         }
         if (0 == strftime(snapshot, STR_SIZE(snapshot), scheme, &ltm)) {
-            set_generic_error(error, "buffer for strftime(3) was unsufficient for '%s'", scheme);
+            set_generic_error(error, "unsufficient buffer to strftime '%s' into %zu bytes", scheme, STR_SIZE(snapshot));
             break;
         }
         if (!method->snapshot(scheme, method_data, error)) {

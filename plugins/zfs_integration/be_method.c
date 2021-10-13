@@ -64,23 +64,7 @@ static bool be_take_snapshot(const char *snapshot, void *data, char **error)
     ok = false;
     lbh = (libbe_handle_t *) data;
     do {
-        time_t t;
-        struct tm ltm = { 0 };
-        char be[BE_MAXPATHLEN];
-
-        if (((time_t) -1) == time(&t)) {
-            set_generic_error(error, "time(3) failed");
-            break;
-        }
-        if (NULL == localtime_r(&t, &ltm)) {
-            set_generic_error(error, "localtime_r(3) failed");
-            break;
-        }
-        if (0 == strftime(be, STR_SIZE(be), snapshot, &ltm)) {
-            set_generic_error(error, "unsufficient buffer to strftime '%s' into %zu bytes", snapshot, STR_SIZE(be));
-            break;
-        }
-        if (BE_ERR_SUCCESS != be_create(lbh, be)) {
+        if (BE_ERR_SUCCESS != be_create(lbh, snapshot)) {
             set_be_error(error, lbh, "failed to create bootenv %s", snapshot);
             break;
         }

@@ -60,17 +60,17 @@ static bool raw_zfs_snapshot(const char *snapshot, void *data, char **error)
     do {
         char buffer[ZFS_MAX_NAME_LEN];
 
-        if (!uzfs_snapshot(ctxt->ptc->root.fs, snapshot, buffer, STR_SIZE(buffer), ctxt->recursive, error)) {
+        if (!uzfs_snapshot(ctxt->ptc->root.fs, snapshot, false, buffer, STR_SIZE(buffer), ctxt->recursive, error)) {
             break;
         }
         if (!ctxt->recursive) {
             if (NULL != ctxt->ptc->localbase.fs) {
-                if (!uzfs_snapshot(ctxt->ptc->localbase.fs, snapshot, buffer, STR_SIZE(buffer), ctxt->recursive, error)) {
+                if (!uzfs_snapshot(ctxt->ptc->localbase.fs, snapshot, false, buffer, STR_SIZE(buffer), ctxt->recursive, error)) {
                     break;
                 }
             }
             if (NULL != ctxt->ptc->pkg_dbdir.fs) {
-                if (!uzfs_snapshot(ctxt->ptc->pkg_dbdir.fs, snapshot, buffer, STR_SIZE(buffer), ctxt->recursive, error)) {
+                if (!uzfs_snapshot(ctxt->ptc->pkg_dbdir.fs, snapshot, false, buffer, STR_SIZE(buffer), ctxt->recursive, error)) {
                     break;
                 }
             }
@@ -83,7 +83,7 @@ static bool raw_zfs_snapshot(const char *snapshot, void *data, char **error)
 
 static bool raw_zfs_rollback(void *UNUSED(data), char **error)
 {
-    set_generic_error(error, "this functionnality is not yet implemented for raw ZFS");
+    set_generic_error(error, "this functionnality is not (yet) implemented for raw ZFS");
 
     return false;
 }
