@@ -55,7 +55,7 @@ static pkg_error_t find_backup_method(char **error)
     return pkg_status;
 }
 
-static bool take_snapshot(const char *scheme, char **error)
+static bool take_snapshot(const char *scheme, const char *hook, char **error)
 {
     bool ok;
 
@@ -77,7 +77,7 @@ static bool take_snapshot(const char *scheme, char **error)
             set_generic_error(error, "unsufficient buffer to strftime '%s' into %zu bytes", scheme, STR_SIZE(snapshot));
             break;
         }
-        if (!method->snapshot(scheme, method_data, error)) {
+        if (!method->snapshot(ptc, snapshot, hook, method_data, error)) {
             break;
         }
         ok = true;
@@ -130,7 +130,7 @@ static int pkg_zint_main(int argc, char **argv)
             pkg_zint_usage();
             break;
         }
-        if (!method->rollback(method_data, temporary, &error)) {
+        if (!method->rollback(ptc, method_data, temporary, &error)) {
             break;
         }
         status = EPKG_OK;
@@ -143,7 +143,14 @@ static int pkg_zint_main(int argc, char **argv)
     return status;
 }
 
-static int handle_upgrade_hook(const char *scheme, void *data/*, struct pkgdb *UNUSED(db)*/)
+static const char *hooks[] = {
+#define HOOK(value, _event, name) \
+    [ value ] = name,
+#include "hooks.h"
+};
+#undef HOOK
+
+static int real_handle_hooks(pkg_plugin_hook_t hook, const char *scheme, void *data)
 {
     char *error;
     pkg_error_t status;
@@ -157,7 +164,7 @@ static int handle_upgrade_hook(const char *scheme, void *data/*, struct pkgdb *U
             status = EPKG_OK;
             break;
         }
-        if (!take_snapshot(scheme, &error)) {
+        if (!take_snapshot(scheme, hooks[hook], &error)) {
             break;
         }
         status = EPKG_OK;
@@ -170,18 +177,24 @@ static int handle_upgrade_hook(const char *scheme, void *data/*, struct pkgdb *U
     return status;
 }
 
-static int handle_pre_upgrade_hook(void *data, struct pkgdb *UNUSED(db))
-{
-    return handle_upgrade_hook("pkg_pre_upgrade_%F_%T", data/*, db*/);
-}
+// I use a xmacro because the callback doesn't know the pkg_plugin_hook_t/why it is called for
+// It would be nice if it received the pkg_plugin_hook_t at its call in case you share a hook to handle several cases
+#define HOOK(value, event, _name) \
+    static int handle_ ## event ## _hook(void *data, struct pkgdb *UNUSED(db)) \
+    { \
+        return real_handle_hooks(value, "pkg_" #event "_%F_%T", data); \
+    }
+#include "hooks.h"
+#undef HOOK
 
-#if 0
-static int handle_post_upgrade_hook(void *data, struct pkgdb *UNUSED(db))
-{
-    return handle_upgrade_hook("pkg_post_upgrade_%F_%T", data/*, db*/);
-}
-#endif
+static const char *schemes[] = {
+#define HOOK(value, event, _name) \
+    [ value ] = "pkg_" #event "_%F_%T",
+#include "hooks.h"
+};
+#undef HOOK
 
+static char CFG_ON[] = "ON";
 static char CFG_FORCE[] = "FORCE";
 
 int pkg_plugin_init(struct pkg_plugin *p)
@@ -200,37 +213,71 @@ int pkg_plugin_init(struct pkg_plugin *p)
      * Default configuration:
      *
      * FORCE = false;
+     * ON: [
+     *     pre_upgrade,
+     *     pre_deinstall,
+     *     pre_autoremove,
+     * ]
      */
     pkg_plugin_conf_add(p, PKG_BOOL, CFG_FORCE, "false");
+    pkg_plugin_conf_add(p, PKG_ARRAY, CFG_ON, "pre_upgrade, pre_deinstall, pre_autoremove");
     pkg_plugin_parse(p);
 
     do {
+        pkg_object_t object_type;
         const pkg_object *config, *object;
 
         status = EPKG_FATAL;
         config = pkg_plugin_conf(p);
+        debug("<config>\n%s\n</config>", pkg_object_dump(config));
+
         object = pkg_object_find(config, CFG_FORCE);
         force = pkg_object_bool(object);
+
+        object = pkg_object_find(config, CFG_ON);
+        object_type = pkg_object_type(object);
+        if (PKG_ARRAY == object_type || PKG_OBJECT == object_type) {
+            pkg_iter it;
+            const pkg_object *item;
+
+            it = NULL;
+            debug("[ZINT] <%s>", CFG_ON);
+            while (NULL != (item = pkg_object_iterate(object, &it))) {
+                const char *k, *v;
+
+                k = pkg_object_key(item);
+                v = pkg_object_string(item);
+                debug("[ZINT] %s = %s", k, v);
+#define HOOK(value, event, _name) \
+    if (0 == strcmp(#event, (NULL == k ? v : k))) { \
+        if (NULL != k) { \
+            schemes[value] = v; \
+        } \
+        if (EPKG_OK != (status = pkg_plugin_hook_register(p, value, handle_ ## event ## _hook))) { \
+            pkg_plugin_error(p, "failed to hook %s (%d) into the library", value, #value); \
+            break; \
+        } \
+        continue; \
+    }
+#include "hooks.h"
+#undef HOOK
+            }
+            debug("[ZINT] </%s>", CFG_ON);
+            if (EPKG_OK != status) {
+                break;
+            }
+        } else {
+            set_generic_error(&error, "configuration key '%s' is expected to be an array or an object but got: %s (%d)", CFG_ON, pkg_object_string(object), object_type);
+             break;
+         }
+
         if (NULL == (ptc = prober_create(&error))) {
-            break;
-        }
-        status = EPKG_OK;
+             break;
+         }
         if (EPKG_OK != (status = find_backup_method(&error))) {
-            break;
-        }
-        if (NULL == method) {
-            break;
-        }
-        if (EPKG_OK != (status = pkg_plugin_hook_register(p, PKG_PLUGIN_HOOK_PRE_UPGRADE, handle_pre_upgrade_hook))) {
-            pkg_plugin_error(self, "failed to set pre-upgrade hook");
-            break;
-        }
-#if 0
-        if (EPKG_OK != (status = pkg_plugin_hook_register(p, PKG_PLUGIN_HOOK_POST_UPGRADE, handle_post_upgrade_hook))) {
-            pkg_plugin_error(self, "failed to set post-upgrade hook");
-            break;
-        }
-#endif
+             break;
+         }
+        assert(NULL != method);
     } while (false);
     if (EPKG_FATAL == status && NULL != error) {
         pkg_plugin_error(self, "%s", error);

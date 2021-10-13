@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <inttypes.h>
 
 #include "common.h"
 #include "error.h"
@@ -8,8 +9,40 @@
 
 typedef struct {
     bool recursive;
-    paths_to_check_t *ptc;
 } raw_zfs_context_t;
+
+bool set_zfs_properties(uzfs_fs_t *fs, const char *hook, char **error)
+{
+    bool ok;
+
+    ok = false;
+    do {
+#if 0
+        zfs_type_t type;
+        const char *kind;
+
+        type = zfs_get_type(const zfs_handle_t *);
+        if (ZFS_TYPE_FILESYSTEM == type) {
+            kind = "BE";
+        } else if (ZFS_TYPE_SNAPSHOT == type) {
+            kind = "snapshot";
+        } else {
+            kind = "unknown";
+        }
+#endif
+        if (!uzfs_fs_prop_set_numeric(fs, ZINT_VERSION_PROPERTY, ZINT_VERSION_NUMBER, error)) {
+            set_generic_error(error, "setting property '%s' to '%" PRIu64 "' on '%s' failed", ZINT_VERSION_PROPERTY, ZINT_VERSION_NUMBER, uzfs_fs_get_name(fs));
+            break;
+        }
+        if (!uzfs_fs_prop_set(fs, ZINT_HOOK_PROPERTY, hook, error)) {
+            set_generic_error(error, "setting property '%s' to '%s' on '%s' failed", ZINT_HOOK_PROPERTY, hook, uzfs_fs_get_name(fs));
+            break;
+        }
+        ok = true;
+    } while (false);
+
+    return ok;
+}
 
 static bm_code_t raw_zfs_suitable(paths_to_check_t *ptc, void **data, char **error)
 {
@@ -28,7 +61,6 @@ static bm_code_t raw_zfs_suitable(paths_to_check_t *ptc, void **data, char **err
             set_malloc_error(error, sizeof(*ctxt));
             break;
         }
-        ctxt->ptc = ptc;
         /* from here we know that /usr/local is on ZFS */
         if (NULL != ptc->root.fs) {
             if (uzfs_same_pool(ptc->root.fs, ptc->localbase.fs)) {
@@ -49,28 +81,53 @@ static bm_code_t raw_zfs_suitable(paths_to_check_t *ptc, void **data, char **err
     return retval;
 }
 
-static bool raw_zfs_snapshot(const char *snapshot, void *data, char **error)
+static bool individual_snapshot(raw_zfs_context_t *ctxt, paths_to_check_t *ptc, uzfs_fs_t *fs, const char *snapshot, const char *hook, char **error)
+{
+    bool ok;
+
+    ok = false;
+    do {
+        uzfs_fs_t *snap;
+        char buffer[ZFS_MAX_NAME_LEN];
+
+        if (!uzfs_snapshot(fs, snapshot, false, buffer, STR_SIZE(buffer), ctxt->recursive, error)) {
+            break;
+        }
+        if (NULL == (snap = uzfs_fs_from_name(ptc->lh, buffer))) {
+            set_generic_error(error, "couldn't acquire a ZFS descriptor on snapshot '%s'", buffer);
+            break;
+        }
+        if (!set_zfs_properties(snap, hook, error)) {
+             break;
+         }
+        uzfs_fs_close(snap);
+        ok = true;
+    } while (false);
+
+    return ok;
+}
+
+static bool raw_zfs_snapshot(paths_to_check_t *ptc, const char *snapshot, const char *hook, void *data, char **error)
 {
     bool ok;
     raw_zfs_context_t *ctxt;
+
     assert(NULL != data);
 
     ok = false;
     ctxt = (raw_zfs_context_t *) data;
     do {
-        char buffer[ZFS_MAX_NAME_LEN];
-
-        if (!uzfs_snapshot(ctxt->ptc->root.fs, snapshot, false, buffer, STR_SIZE(buffer), ctxt->recursive, error)) {
+        if (!individual_snapshot(ctxt, ptc, ptc->root.fs, snapshot, hook, error)) {
             break;
         }
         if (!ctxt->recursive) {
-            if (NULL != ctxt->ptc->localbase.fs) {
-                if (!uzfs_snapshot(ctxt->ptc->localbase.fs, snapshot, false, buffer, STR_SIZE(buffer), ctxt->recursive, error)) {
+            if (NULL != ptc->localbase.fs) {
+                if (!individual_snapshot(ctxt, ptc, ptc->localbase.fs, snapshot, hook, error)) {
                     break;
                 }
             }
-            if (NULL != ctxt->ptc->pkg_dbdir.fs) {
-                if (!uzfs_snapshot(ctxt->ptc->pkg_dbdir.fs, snapshot, false, buffer, STR_SIZE(buffer), ctxt->recursive, error)) {
+            if (NULL != ptc->pkg_dbdir.fs) {
+                if (!individual_snapshot(ctxt, ptc, ptc->pkg_dbdir.fs, snapshot, hook, error)) {
                     break;
                 }
             }
@@ -81,7 +138,7 @@ static bool raw_zfs_snapshot(const char *snapshot, void *data, char **error)
     return ok;
 }
 
-static bool raw_zfs_rollback(void *UNUSED(data), bool UNUSED(temporary), char **error)
+static bool raw_zfs_rollback(paths_to_check_t *UNUSED(ptc), void *UNUSED(data), bool UNUSED(temporary), char **error)
 {
     set_generic_error(error, "this functionnality is not (yet) implemented for raw ZFS");
 

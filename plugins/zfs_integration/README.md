@@ -4,9 +4,9 @@ Provides ZFS and BE support.
 
 Status: **experimental** (use it at your own risk), beta testers welcome.
 
-Automatically takes a snapshot (ZFS) or creates a boot environment (BE) before actually running `pkg upgrade` of the name pkg\_pre\_upgrade\_\<date>\_\<time>.
+Automatically takes a snapshot (ZFS) or creates a boot environment (BE) before actually running `pkg upgrade` or `pkg autoremove` (by default, events when to do so are configurable).
 
-Also provides a `pkg zint rollback` command to revert your active boot environment to the latest pkg\_pre\_upgrade\_\* BE (ZFS not supported, only BE - for now) (of course, you need to reboot to apply the change) allowing you to return prior to `pkg upgrade` if something turned really bad.
+Also provides a `pkg zint rollback` command to revert your active boot environment to the latest BE (ZFS not supported, only BE - for now) created by this plugin (of course, you need to reboot to apply the change) allowing you to return prior to `pkg upgrade`/`pkg autoremove` if something turned really bad.
 
 The plugin automatically choose between BE and ZFS by probing if /, /usr/local and /var/db/pkg are all on ZFS and are on the same file systems. If this is the case, BE is used else ZFS if at least /usr/local is a ZFS file system. The snapshot will be recursive if / is also on ZFS and on the same pool as /usr/local.
 
@@ -27,3 +27,21 @@ pkg_pre_upgrade_2021-09-14_16:21:24 -      -          41.3M 2021-09-14 16:21
 Note: keys are case sensitive, they have to be uppercased in ```\`pkg config PLUGINS_CONF_DIR\`/zint.conf```
 
 * `FORCE` (boolean, default: `false`): when `false`, do not create a BE/snapshot if the `pkg` command does not actually imply any change. Set it to `true` to create a BE/snapshot anyway, you might want to turn it on if you run more often `pkg` than you create BE/snapshot
+* `ON` (default: `[ pre_upgrade, pre_autoremove ]`), an array of events from the list below :
+  + `pre_install`: to create a BE/snapshot right before `pkg install`
+  + `post_install`: right after `pkg install`
+  + `pre_deinstall`: before `pkg remove`
+  + `post_deinstall`: after `pkg remove`
+  + `pre_upgrade`: before `pkg upgrade`
+  + `post_upgrade`: after `pkg upgrade`
+  + `pre_autoremove`: before `pkg autoremove`
+  + `post_autoremove`: after `pkg autoremove`
+
+By default, BE/snapshot are named from the `strftime` pattern `pkg_<event name>_%F_%T` but you can override this pattern by using an object where the keys are the event's name from the list above and the value, your own strftime-pattern. Example:
+
+```
+ON: {
+    pre_upgrade: "zint_upgrade_%Y-%m-%d-%H:%i:%s",
+    pre_autoremove: "zint_autoremove_%Y-%m-%d-%H:%i:%s",
+}
+```

@@ -12,14 +12,14 @@ static bm_code_t none_suitable(paths_to_check_t *UNUSED(ptc), void **data, char 
     return BM_OK;
 }
 
-static bool none_take_snapshot(const char *UNUSED(snapshot), void *UNUSED(data), char **UNUSED(error))
+static bool none_take_snapshot(paths_to_check_t *UNUSED(ptc), const char *UNUSED(snapshot), const char *UNUSED(hook), void *UNUSED(data), char **UNUSED(error))
 {
     fprintf(stderr, "%s: sorry, you are on your own, nothing I can't do for you, it seems that %s is not located on a ZFS filesystem\n", NAME, localbase());
 
     return true;
 }
 
-static bool none_rollback(void *UNUSED(data), bool UNUSED(temporary), char **error)
+static bool none_rollback(paths_to_check_t *UNUSED(ptc), void *UNUSED(data), bool UNUSED(temporary), char **error)
 {
     set_generic_error(error, "a rollback is not possible on a non-ZFS system");
 

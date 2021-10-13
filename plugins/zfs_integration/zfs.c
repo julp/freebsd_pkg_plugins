@@ -13,6 +13,7 @@
 #pragma GCC diagnostic ignored "-Wunknown-pragmas"
 #pragma GCC diagnostic ignored "-Wstrict-prototypes"
 #include <libzfs.h>
+#include <zfs_prop.h>
 
 #ifdef DEBUG
 # define set_zfs_error(error, lzh, format, ...) \
@@ -578,4 +579,122 @@ void uzfs_fs_close(uzfs_fs_t *fs)
 
     zfs_close(fs->fh);
     free(fs);
+}
+
+bool uzfs_fs_prop_get(uzfs_fs_t *fs, const char *name, char *value, size_t value_size)
+{
+    bool ok;
+
+    assert(NULL != fs);
+    assert(NULL != name);
+    assert(NULL != value);
+
+    ok = false;
+    do {
+        if (NULL != strchr(name, ':')) {
+            nvlist_t *props, *propval;
+
+            if (NULL == (props = zfs_get_user_props(fs->fh))) {
+                break;
+            }
+            if (0 != nvlist_lookup_nvlist(props, name, &propval)) {
+                break;
+            }
+            if (0 != nvlist_lookup_string(propval, ZPROP_VALUE, &value)) {
+                break;
+            }
+        } else {
+            int prop;
+
+            if (ZPROP_INVAL == (prop = zprop_name_to_prop(name, zfs_get_type(fs->fh)))) {
+                //set_generic_error(error, "property '%s' is not valid", name);
+                break;
+            }
+            if (0 != zfs_prop_get(fs->fh, prop, value, value_size, NULL, NULL, 0, B_TRUE)) {
+                break;
+            }
+        }
+        ok = true;
+    } while (false);
+
+    return ok;
+}
+
+bool uzfs_fs_prop_get_numeric(uzfs_fs_t *fs, const char *name, uint64_t *value)
+{
+    bool ok;
+
+    assert(NULL != fs);
+    assert(NULL != name);
+    assert(NULL != value);
+
+    ok = false;
+    do {
+        if (NULL != strchr(name, ':')) {
+            char *propstr, *endptr;
+            nvlist_t *props, *propval;
+            unsigned long long propui;
+
+            if (NULL == (props = zfs_get_user_props(fs->fh))) {
+                break;
+            }
+            if (0 != nvlist_lookup_nvlist(props, name, &propval)) {
+                break;
+            }
+            if (0 != nvlist_lookup_string(propval, ZPROP_VALUE, &propstr)) {
+                break;
+            }
+            propui = strtoull(propstr, &endptr, 10);
+            if ('\0' != *endptr || (errno == ERANGE && propui == ULLONG_MAX)) {
+                break;
+            }
+            *value = propui;
+        } else {
+            int prop;
+
+            if (ZPROP_INVAL == (prop = zprop_name_to_prop(name, zfs_get_type(fs->fh)))) {
+                //set_generic_error(error, "property '%s' is not valid", name);
+                break;
+            }
+            // uint64_t zfs_prop_get_int(zfs_handle_t *, zfs_prop_t);
+            if (0 != zfs_prop_get_numeric(fs->fh, prop, value, NULL, NULL, 0)) {
+                break;
+            }
+        }
+        ok = true;
+    } while (false);
+
+    return ok;
+}
+
+bool uzfs_fs_prop_set(uzfs_fs_t *fs, const char *name, const char *value, char **error)
+{
+    int ret;
+
+    assert(NULL != fs);
+    assert(NULL != name);
+    assert(NULL != value);
+
+    if (-1 == (ret = zfs_prop_set(fs->fh, name, value))) {
+        set_zfs_error(error, lh_from_fs(fs), "failed to set property '%s' to '%s'", name, value);
+    }
+
+    return -1 != ret;
+}
+
+bool uzfs_fs_prop_set_numeric(uzfs_fs_t *fs, const char *name, uint64_t value, char **error)
+{
+    int ret;
+    char buffer[128];
+
+    assert(NULL != fs);
+    assert(NULL != name);
+
+    ret = snprintf(buffer, STR_SIZE(buffer), "%" PRIu64, value);
+    assert(ret > 0 && ((size_t) ret) <= STR_SIZE(buffer));
+    if (-1 == (ret = zfs_prop_set(fs->fh, name, buffer))) {
+        set_zfs_error(error, lh_from_fs(fs), "failed to set property '%s' to '%" PRIu64 "'", name, value);
+    }
+
+    return -1 != ret;
 }

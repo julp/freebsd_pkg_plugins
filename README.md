@@ -24,7 +24,7 @@ Not (yet) in ports tree, so:
 ```
 # as a regular user
 git clone https://github.com/julp/freebsd_pkg_plugins.git
-cmake -S freebsd_pkg_plugins -B /tmp/freebsd_pkg_plugins -DCMAKE_BUILD_TYPE=Debug
+cmake -S freebsd_pkg_plugins -B /tmp/freebsd_pkg_plugins # -DCMAKE_BUILD_TYPE=Debug
 
 # to build on FreeBSD as a port/package and pretending I previously was the user julp and ran git clone in my home
 # as root

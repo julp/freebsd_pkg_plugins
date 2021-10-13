@@ -1,10 +1,11 @@
 #pragma once
 
+#include <stdint.h>
 #include <stdbool.h>
 
 // NOTE: for compatibility with FreeBSD < 11.1
 #ifndef ZFS_MAX_DATASET_NAME_LEN
-# define ZFS_MAX_DATASET_NAME_LEN MAXNAMELEN
+# define ZFS_MAX_DATASET_NAME_LEN MAXPATHLEN
 #endif /* !ZFS_MAX_DATASET_NAME_LEN */
 
 // HACK: this constant is intended to provide a non-random and consistent buffer size for pool,
@@ -33,3 +34,9 @@ uzfs_fs_t *uzfs_fs_from_name(uzfs_lib_t *, const char *);
 const char *uzfs_fs_get_name(uzfs_fs_t *);
 
 bool uzfs_snapshot(uzfs_fs_t *, const char *, bool, char *, size_t, bool, char **);
+
+bool uzfs_fs_prop_get(uzfs_fs_t *, const char *, char *, size_t);
+bool uzfs_fs_prop_set(uzfs_fs_t *, const char *, const char *, char **);
+
+bool uzfs_fs_prop_get_numeric(uzfs_fs_t *, const char *, uint64_t *);
+bool uzfs_fs_prop_set_numeric(uzfs_fs_t *, const char *, uint64_t, char **);
