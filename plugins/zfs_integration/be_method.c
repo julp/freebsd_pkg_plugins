@@ -7,6 +7,7 @@
 #include "kissc/stpcpy_sp.h"
 #include "shared/path_join.h"
 #include "backup_method.h"
+#include "selection.h"
 
 #ifdef DEBUG
 # define set_be_error(error, lbh, format, ...) \
@@ -59,20 +60,6 @@ static bool extract_creation_from_be(nvpair_t *be, uint64_t *creation)
     return ok;
 }
 
-// <TODO: for transition, to be removed in a future version>
-static bool str_starts_with(const char *string, const char *prefix)
-{
-    size_t prefix_len;
-
-    assert(NULL != string);
-    assert(NULL != prefix);
-
-    prefix_len = strlen(prefix);
-
-    return prefix_len <= strlen(string) && 0 == strncmp(string, prefix, prefix_len);
-}
-// </TODO: for transition, to be removed in a future version>
-
 static uzfs_fs_t *be_to_fs(paths_to_check_t *ptc, libbe_handle_t *lbh, const char *be, char **error)
 {
     uzfs_fs_t *fs;
@@ -91,6 +78,173 @@ static uzfs_fs_t *be_to_fs(paths_to_check_t *ptc, libbe_handle_t *lbh, const cha
     } while (false);
 
     return fs;
+}
+
+typedef struct {
+    char name[BE_MAXPATHLEN];
+    uint64_t creation;
+//     uzfs_fs_t *fs;
+} be_t;
+
+static int compare_be_by_creation_date_desc(be_t *a, be_t *b)
+{
+    assert(NULL != a);
+    assert(NULL != b);
+
+    return b->creation - a->creation;
+}
+
+static int compare_be_by_creation_date_asc(be_t *a, be_t *b)
+{
+    assert(NULL != a);
+    assert(NULL != b);
+
+    return a->creation - b->creation;
+}
+
+static void destroy_be(be_t *be)
+{
+    assert(NULL != be);
+
+//     if (NULL != be->fs) {
+//         uzfs_fs_close(be->fs);
+//     }
+    free(be);
+}
+
+static be_t *copy_be(nvpair_t *bepair)
+{
+    be_t *be, *ret;
+
+    be = ret = NULL;
+    do {
+        if (NULL == (be = malloc(sizeof(*be)))) {
+            break;
+        }
+        if (strlcpy(be->name, extract_name_from_be(bepair), STR_SIZE(be->name)) >= STR_SIZE(be->name)) {
+            break;
+        }
+        if (!extract_creation_from_be(bepair, &be->creation)) {
+            break;
+        }
+        ret = be;
+    } while (false);
+    if (ret != be) {
+        free(be);
+    }
+
+    return ret;
+}
+
+// <TODO: for transition, to be removed in a future version>
+static bool str_starts_with(const char *string, const char *prefix)
+{
+    size_t prefix_len;
+
+    assert(NULL != string);
+    assert(NULL != prefix);
+
+    prefix_len = strlen(prefix);
+
+    return prefix_len <= strlen(string) && 0 == strncmp(string, prefix, prefix_len);
+}
+// </TODO: for transition, to be removed in a future version>
+
+#ifdef DEBUG
+# include <time.h>
+// selection_dump(bes, (void (*)(void *)) print_be);
+static void print_be(be_t *be)
+{
+    time_t time;
+    struct tm tm;
+    size_t written;
+    char buffer[128];
+
+    assert(NULL != be);
+
+    time = (time_t) be->creation;
+    localtime_r(&time, &tm);
+    written = strftime(buffer, STR_SIZE(buffer), "%F %T", &tm);
+    assert(written < STR_LEN(buffer));
+    fprintf(stderr, "%s = %s (%" PRIu64 ")\n", be->name, buffer, be->creation);
+}
+#endif /* DEBUG */
+
+static selection_t *fetch_sorted_zint_be(paths_to_check_t *ptc, libbe_handle_t *lbh, CmpFunc cmp, char **error)
+{
+    nvlist_t *props;
+    selection_t *ret, *bes;
+
+    assert(NULL != lbh);
+
+    bes = ret = NULL;
+    props = NULL;
+    do {
+        nvpair_t *cur;
+
+        if (0 != be_prop_list_alloc(&props)) {
+            set_be_error(error, lbh, "be_prop_list_alloc failed");
+            break;
+        }
+        if (0 != be_get_bootenv_props(lbh, props)) {
+            set_be_error(error, lbh, "be_get_bootenv_props failed");
+            break;
+        }
+        if (NULL == (bes = selection_new(cmp, (DtorFunc) destroy_be, (DupFunc) copy_be))) {
+            set_generic_error(error, "TODO");
+            break;
+        }
+        for (cur = nvlist_next_nvpair(props, NULL); NULL != cur; cur = nvlist_next_nvpair(props, cur)) {
+            uint64_t version;
+            uzfs_fs_t *fs;
+            const char *name;
+
+            name = extract_name_from_be(cur);
+            if (NULL == (fs = be_to_fs(ptc, lbh, name, error))) {
+                // TODO: real error handling
+                continue;
+            }
+retry:
+            if (!uzfs_fs_prop_get_numeric(fs, ZINT_VERSION_PROPERTY, &version)) {
+                // <TODO: for transition, to be removed in a future version>
+                if (str_starts_with(name, "pkg_pre_upgrade_") && strlen(name) == STR_LEN("pkg_pre_upgrade_YYYY-mm-dd_HH:ii:ss")) {
+                    if (!set_zfs_properties(fs, "PRE:UPGRADE", NULL)) {
+                        continue;
+                    } else {
+                        goto retry;
+                    }
+                }
+                // </TODO: for transition, to be removed in a future version>
+                debug("property '%s' not set on '%s'", ZINT_VERSION_PROPERTY, uzfs_fs_get_name(fs));
+                debug("skipping BE '%s', not created by pkg zint", name);
+                continue;
+            } else {
+                debug("%s = %" PRIu64 " for %s", ZINT_VERSION_PROPERTY, version, uzfs_fs_get_name(fs));
+            }
+            if (!selection_add(bes, cur)) {
+                // TODO: error handling
+            }
+            if (NULL != fs) {
+                uzfs_fs_close(fs);
+            }
+        }
+        ret = bes;
+    } while (false);
+    if (NULL != props) {
+        be_prop_list_free(props);
+    }
+    if (ret != bes) {
+        selection_destroy(bes);
+    }
+
+    return ret;
+}
+
+static bool apply_retention(be_t *be, void *data, char **error)
+{
+    //
+
+    return true;
 }
 
 static bm_code_t be_suitable(paths_to_check_t *ptc, void **data, char **error)
@@ -121,6 +275,29 @@ static bm_code_t be_suitable(paths_to_check_t *ptc, void **data, char **error)
 #ifdef DEBUG
         libbe_print_on_error(lbh, true); // TODO: explicit false when !DEBUG ?
 #endif /* DEBUG */
+#if 1 // TODO: TEST
+        {
+            bool ok;
+            selection_t *bes;
+
+            ok = false;
+            bes = NULL;
+            do {
+//                 if (!retention_disabled()) {
+                if (NULL == (bes = fetch_sorted_zint_be(ptc, lbh, (CmpFunc) compare_be_by_creation_date_desc, error))) {
+                    break;
+                }
+//                 selection_dump(bes, (void (*)(void *)) print_be);
+                if (!selection_apply(bes, (bool (*)(void *, void *, char **)) apply_retention, NULL /* TODO: data */, error)) {
+                    break;
+                }
+                ok = true;
+            } while (false);
+            if (NULL != bes) {
+                selection_destroy(bes);
+            }
+        }
+#endif
         *data = lbh;
         retval = BM_OK;
     } while (false);
@@ -163,79 +340,29 @@ static bool be_take_snapshot(paths_to_check_t *ptc, const char *snapshot, const 
 static bool be_rollback(paths_to_check_t *ptc, void *data, bool temporary, char **error)
 {
     bool ok;
-    nvlist_t *props;
+    selection_t *bes;
 
     ok = false;
-    props = NULL;
     do {
-        nvpair_t *cur;
+        be_t *last;
         libbe_handle_t *lbh;
-        uint64_t last_bootenv_creation;
-        const char *last_bootenv_name;
 
-        last_bootenv_name = NULL;
         lbh = (libbe_handle_t *) data;
-        if (0 != be_prop_list_alloc(&props)) {
-            set_be_error(error, lbh, "be_prop_list_alloc failed");
+        if (NULL == (bes = fetch_sorted_zint_be(ptc, lbh, (CmpFunc) compare_be_by_creation_date_desc, error))) {
             break;
         }
-        if (0 != be_get_bootenv_props(lbh, props)) {
-            set_be_error(error, lbh, "be_get_bootenv_props failed");
+        if (!selection_at(bes, 0, (void **) &last)) {
+            set_generic_error(error, "no identified BE to rollback to");
             break;
         }
-        for (cur = nvlist_next_nvpair(props, NULL); NULL != cur; cur = nvlist_next_nvpair(props, cur)) {
-            uzfs_fs_t *fs;
-            const char *name;
-            nvlist_t *dsprops;
-            uint64_t version, creation;
-
-            dsprops = NULL;
-            name = extract_name_from_be(cur);
-            if (!extract_creation_from_be(cur, &creation)) {
-                continue;
-            }
-            if (NULL == (fs = be_to_fs(ptc, lbh, name, error))) {
-                // TODO: real error handling
-                continue;
-            }
-retry:
-            if (!uzfs_fs_prop_get_numeric(fs, ZINT_VERSION_PROPERTY, &version)) {
-                // <TODO: for transition, to be removed in a future version>
-                if (str_starts_with(name, "pkg_pre_upgrade_") && strlen(name) == STR_LEN("pkg_pre_upgrade_YYYY-mm-dd_HH:ii:ss")) {
-                    if (!set_zfs_properties(fs, "PRE:UPGRADE", NULL)) {
-                        continue;
-                    } else {
-                        goto retry;
-                    }
-                }
-                // </TODO: for transition, to be removed in a future version>
-                debug("property '%s' not set on '%s'", ZINT_VERSION_PROPERTY, uzfs_fs_get_name(fs));
-                debug("skipping BE '%s', not created by pkg zint", name);
-                continue;
-            } else {
-                debug("%s = %" PRIu64 " for %s", ZINT_VERSION_PROPERTY, version, uzfs_fs_get_name(fs));
-            }
-            if (NULL == last_bootenv_name || creation > last_bootenv_creation) {
-                last_bootenv_name = name;
-                last_bootenv_creation = creation;
-            }
-// debug("%s = %s", name, ctime((time_t *) &creation));
-            if (NULL != fs) {
-                uzfs_fs_close(fs);
-            }
-        }
-        if (NULL == last_bootenv_name) {
-            set_generic_error(error, "no BE identified to rollback to");
-            break;
-        } else if (BE_ERR_SUCCESS != be_activate(lbh, last_bootenv_name, temporary)) {
-// debug("%s = %s", last_bootenv_name, ctime((time_t *) &last_bootenv_creation));
-            set_be_error(error, lbh, "failed to activate BE '%s'", last_bootenv_name);
+        if (BE_ERR_SUCCESS != be_activate(lbh, last->name, temporary)) {
+            set_be_error(error, lbh, "failed to activate BE '%s'", last->name);
             break;
         }
         ok = true;
     } while (false);
-    if (NULL != props) {
-        be_prop_list_free(props);
+    if (NULL != bes) {
+        selection_destroy(bes);
     }
 
     return ok;

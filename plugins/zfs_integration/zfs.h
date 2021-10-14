@@ -33,6 +33,7 @@ uzfs_fs_t *uzfs_fs_from_file(uzfs_lib_t *, const char *);
 uzfs_fs_t *uzfs_fs_from_name(uzfs_lib_t *, const char *);
 const char *uzfs_fs_get_name(uzfs_fs_t *);
 
+bool uzfs_rollback(uzfs_fs_t *, uzfs_fs_t *, bool, char **);
 bool uzfs_snapshot(uzfs_fs_t *, const char *, bool, char *, size_t, bool, char **);
 
 bool uzfs_fs_prop_get(uzfs_fs_t *, const char *, char *, size_t);

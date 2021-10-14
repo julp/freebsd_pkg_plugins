@@ -7,6 +7,7 @@
 #include "error.h"
 #include "shared/os.h"
 #include "backup_method.h"
+#include "retention.h"
 
 #ifdef HAVE_BE
 extern const backup_method_t be_method;
@@ -86,9 +87,10 @@ static bool take_snapshot(const char *scheme, const char *hook, char **error)
     return ok;
 }
 
-static char pkg_zint_optstr[] = "t";
+static char pkg_zint_optstr[] = "nt";
 
 static struct option pkg_zint_long_options[] = {
+    { "dry-run",   no_argument, NULL, 'n' },
     { "temporary", no_argument, NULL, 't' },
     { NULL,        no_argument, NULL, 0 },
 };
@@ -102,14 +104,17 @@ static int pkg_zint_main(int argc, char **argv)
 {
     int ch;
     char *error;
-    bool temporary;
     pkg_error_t status;
+    bool temporary, dry_run;
 
     error = NULL;
-    temporary = false;
     status = EPKG_FATAL;
+    dry_run = temporary = false;
     while (-1 != (ch = getopt_long(argc, argv, pkg_zint_optstr, pkg_zint_long_options, NULL))) {
         switch (ch) {
+            case 'n':
+                dry_run = true;
+                break;
             case 't':
                 temporary = true;
                 break;
@@ -149,6 +154,25 @@ static const char *hooks[] = {
 #include "hooks.h"
 };
 #undef HOOK
+
+int name_to_hook(const char *name)
+{
+    int hook;
+
+    hook = -1;
+    if (NULL != name) {
+        size_t i;
+
+        for (i = 0; i < ARRAY_SIZE(hooks); i++) {
+            if (NULL != hooks[i] && 0 == strcmp(hooks[i], name)) {
+                hook = i;
+                break;
+            }
+        }
+    }
+
+    return hook;
+}
 
 static int real_handle_hooks(pkg_plugin_hook_t hook, const char *scheme, void *data)
 {
@@ -196,6 +220,7 @@ static const char *schemes[] = {
 
 static char CFG_ON[] = "ON";
 static char CFG_FORCE[] = "FORCE";
+static char CFG_RETENTION[] = "RETENTION";
 
 int pkg_plugin_init(struct pkg_plugin *p)
 {
@@ -212,6 +237,7 @@ int pkg_plugin_init(struct pkg_plugin *p)
     /**
      * Default configuration:
      *
+     * RETENTION = "";
      * FORCE = false;
      * ON: [
      *     pre_upgrade,
@@ -221,15 +247,22 @@ int pkg_plugin_init(struct pkg_plugin *p)
      */
     pkg_plugin_conf_add(p, PKG_BOOL, CFG_FORCE, "false");
     pkg_plugin_conf_add(p, PKG_ARRAY, CFG_ON, "pre_upgrade, pre_deinstall, pre_autoremove");
+    pkg_plugin_conf_add(p, PKG_STRING, CFG_RETENTION, "");
     pkg_plugin_parse(p);
 
     do {
+        char retention[1000];
         pkg_object_t object_type;
         const pkg_object *config, *object;
 
         status = EPKG_FATAL;
         config = pkg_plugin_conf(p);
         debug("<config>\n%s\n</config>", pkg_object_dump(config));
+
+        object = pkg_object_find(config, CFG_RETENTION);
+        if (!retention_parse(object, (retention_t *) retention, &error)) {
+            break;
+        }
 
         object = pkg_object_find(config, CFG_FORCE);
         force = pkg_object_bool(object);
@@ -270,7 +303,6 @@ int pkg_plugin_init(struct pkg_plugin *p)
             set_generic_error(&error, "configuration key '%s' is expected to be an array or an object but got: %s (%d)", CFG_ON, pkg_object_string(object), object_type);
             break;
         }
-
         if (NULL == (ptc = prober_create(&error))) {
             break;
         }

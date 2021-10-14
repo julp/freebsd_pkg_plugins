@@ -76,6 +76,8 @@ set_target_properties(zfs PROPERTIES
 set(ZINT_SOURCES
     plugin_zfs_integration.c
     #utils.c
+    selection.c
+    retention.c
     none_method.c
     $<TARGET_OBJECTS:zfs>
     ${PROJECT_SOURCE_DIR}/shared/os.c

@@ -581,6 +581,25 @@ void uzfs_fs_close(uzfs_fs_t *fs)
     free(fs);
 }
 
+bool uzfs_rollback(uzfs_fs_t *fs, uzfs_fs_t *snapshot, bool force, char **error)
+{
+    bool ok;
+
+    assert(NULL != fs);
+    assert(NULL != snapshot);
+
+    ok = false;
+    do {
+        if (0 != zfs_rollback(fs->fh, snapshot->fh, force)) {
+            set_zfs_error(error, lh_from_fs(fs), "failed to rollback '%s' to '%s'", zfs_get_name(fs->fh), zfs_get_name(snapshot->fh));
+            break;
+        }
+        ok = true;
+    } while (false);
+
+    return ok;
+}
+
 bool uzfs_fs_prop_get(uzfs_fs_t *fs, const char *name, char *value, size_t value_size)
 {
     bool ok;
