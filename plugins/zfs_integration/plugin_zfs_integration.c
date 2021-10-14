@@ -268,15 +268,15 @@ int pkg_plugin_init(struct pkg_plugin *p)
             }
         } else {
             set_generic_error(&error, "configuration key '%s' is expected to be an array or an object but got: %s (%d)", CFG_ON, pkg_object_string(object), object_type);
-             break;
-         }
+            break;
+        }
 
         if (NULL == (ptc = prober_create(&error))) {
-             break;
-         }
+            break;
+        }
         if (EPKG_OK != (status = find_backup_method(&error))) {
-             break;
-         }
+            break;
+        }
         assert(NULL != method);
     } while (false);
     if (EPKG_FATAL == status && NULL != error) {
