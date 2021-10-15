@@ -17,6 +17,7 @@
     _error_set(error, format ": %s", ## __VA_ARGS__, libbe_error_description(lbh))
 #endif /* DEBUG */
 
+// defined by raw_zfs_method.c
 extern bool has_zfs_properties(uzfs_fs_t *);
 extern bool set_zfs_properties(uzfs_fs_t *, const char *, char **);
 
@@ -162,7 +163,9 @@ static selection_t *fetch_sorted_zint_be(paths_to_check_t *ptc, libbe_handle_t *
     nvlist_t *props;
     selection_t *ret, *bes;
 
+    assert(NULL != ptc);
     assert(NULL != lbh);
+    assert(NULL != cmp);
 
     bes = ret = NULL;
     props = NULL;

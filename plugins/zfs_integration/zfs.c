@@ -721,3 +721,17 @@ bool uzfs_fs_prop_set_numeric(uzfs_fs_t *fs, const char *name, uint64_t value, c
 
     return -1 != ret;
 }
+
+#if 0
+extern int zfs_iter_snapshots(zfs_handle_t *, boolean_t, zfs_iter_f, void *, uint64_t, uint64_t);
+extern int zfs_iter_snapshots_sorted(zfs_handle_t *, zfs_iter_f, void *, uint64_t, uint64_t);
+extern int zfs_iter_snapspec(zfs_handle_t *, const char *, zfs_iter_f, void *);
+
+extern int zfs_destroy(zfs_handle_t *, boolean_t);
+extern int zfs_destroy_snaps(zfs_handle_t *, char *, boolean_t);
+extern int zfs_destroy_snaps_nvl(libzfs_handle_t *, nvlist_t *, boolean_t);
+
+extern int zfs_snapshot(libzfs_handle_t *, const char *, boolean_t, nvlist_t *);
+extern int zfs_snapshot_nvl(libzfs_handle_t *hdl, nvlist_t *snaps, nvlist_t *props);
+extern int zfs_rollback(zfs_handle_t *, zfs_handle_t *, boolean_t);
+#endif

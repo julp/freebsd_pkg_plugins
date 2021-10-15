@@ -6,6 +6,7 @@
 #include "zfs.h"
 #include "probe.h"
 #include "backup_method.h"
+#include "selection.h"
 
 typedef struct {
     bool recursive;
@@ -96,6 +97,85 @@ retry:
     } while (false);
 
     return ok;
+}
+
+typedef struct {
+    char name[ZFS_MAX_NAME_LEN];
+    uint64_t creation;
+    uzfs_fs_t *fs;
+} snapshot_t;
+
+static int compare_snapshot_by_creation_date_desc(snapshot_t *a, snapshot_t *b)
+{
+    assert(NULL != a);
+    assert(NULL != b);
+
+    return (b->creation >= a->creation ? b->creation - a->creation : -1);
+}
+
+static int compare_snapshot_by_creation_date_asc(snapshot_t *a, snapshot_t *b)
+{
+    assert(NULL != a);
+    assert(NULL != b);
+
+    return (a->creation >= b->creation ? a->creation - b->creation : -1);
+}
+
+static void destroy_snapshot(snapshot_t *snap)
+{
+    assert(NULL != snap);
+
+    if (NULL != snap->fs) {
+        uzfs_fs_close(snap->fs);
+    }
+    free(snap);
+}
+
+static snapshot_t *copy_snapshot(uzfs_fs_t *fs)
+{
+    snapshot_t *snap, *ret;
+
+    snap = ret = NULL;
+    do {
+        if (NULL == (snap = malloc(sizeof(*snap)))) {
+            break;
+        }
+        if (strlcpy(snap->name, uzfs_fs_get_name(fs), STR_SIZE(snap->name)) >= STR_SIZE(snap->name)) {
+            break;
+        }
+        if (!uzfs_fs_prop_get_numeric(fs, "creation", &snap->creation)) {
+            break;
+        }
+        ret = snap;
+    } while (false);
+    if (ret != snap) {
+        free(snap);
+    }
+
+    return ret;
+}
+
+static selection_t *fetch_sorted_zint_snapshot(uzfs_fs_t *fs, CmpFunc cmp, char **error)
+{
+    selection_t *ret, *bes;
+
+    assert(NULL != fs);
+    assert(NULL != cmp);
+
+    bes = ret = NULL;
+    do {
+        if (NULL == (bes = selection_new(cmp, (DtorFunc) destroy_snapshot, (DupFunc) copy_snapshot))) {
+            set_generic_error(error, "TODO");
+            break;
+        }
+        // TODO: itérer sur les snapshots pour if (has_zfs_properties(fs)) + if (!selection_add(bes, cur))
+        ret = bes;
+    } while (false);
+    if (ret != bes) {
+        selection_destroy(bes);
+    }
+
+    return ret;
 }
 
 static bm_code_t raw_zfs_suitable(paths_to_check_t *ptc, void **data, char **error)
