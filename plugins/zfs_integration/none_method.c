@@ -19,7 +19,7 @@ static bool none_take_snapshot(paths_to_check_t *UNUSED(ptc), const char *UNUSED
     return true;
 }
 
-static bool none_rollback(paths_to_check_t *UNUSED(ptc), void *UNUSED(data), bool UNUSED(temporary), char **error)
+static bool none_rollback(paths_to_check_t *UNUSED(ptc), void *UNUSED(data), bool UNUSED(dry_run), bool UNUSED(temporary), char **error)
 {
     set_generic_error(error, "a rollback is not possible on a non-ZFS system");
 

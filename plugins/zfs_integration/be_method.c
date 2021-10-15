@@ -92,7 +92,7 @@ static int compare_be_by_creation_date_desc(be_t *a, be_t *b)
     assert(NULL != a);
     assert(NULL != b);
 
-    return b->creation - a->creation;
+    return (b->creation >= a->creation ? b->creation - a->creation : -1);
 }
 
 static int compare_be_by_creation_date_asc(be_t *a, be_t *b)
@@ -100,7 +100,7 @@ static int compare_be_by_creation_date_asc(be_t *a, be_t *b)
     assert(NULL != a);
     assert(NULL != b);
 
-    return a->creation - b->creation;
+    return (a->creation >= b->creation ? a->creation - b->creation : -1);
 }
 
 static void destroy_be(be_t *be)
@@ -258,7 +258,7 @@ static bm_code_t be_suitable(paths_to_check_t *ptc, void **data, char **error)
                 if (NULL == (bes = fetch_sorted_zint_be(ptc, lbh, (CmpFunc) compare_be_by_creation_date_desc, error))) {
                     break;
                 }
-//                 selection_dump(bes, (void (*)(void *)) print_be);
+                selection_dump(bes, (void (*)(void *)) print_be);
                 if (!selection_apply(bes, (bool (*)(void *, void *, char **)) apply_retention, NULL /* TODO: data */, error)) {
                     break;
                 }
@@ -308,7 +308,7 @@ static bool be_take_snapshot(paths_to_check_t *ptc, const char *snapshot, const 
     return ok;
 }
 
-static bool be_rollback(paths_to_check_t *ptc, void *data, bool temporary, char **error)
+static bool be_rollback(paths_to_check_t *ptc, void *data, bool dry_run, bool temporary, char **error)
 {
     bool ok;
     selection_t *bes;
@@ -326,10 +326,11 @@ static bool be_rollback(paths_to_check_t *ptc, void *data, bool temporary, char 
             set_generic_error(error, "no identified BE to rollback to");
             break;
         }
-        if (BE_ERR_SUCCESS != be_activate(lbh, last->name, temporary)) {
+        if (!dry_run && BE_ERR_SUCCESS != be_activate(lbh, last->name, temporary)) {
             set_be_error(error, lbh, "failed to activate BE '%s'", last->name);
             break;
         }
+        fprintf(stderr, "system %s rollbacked on BE '%s'\n", dry_run ? "would be" : "was", last->name);
         ok = true;
     } while (false);
     if (NULL != bes) {

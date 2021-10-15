@@ -87,17 +87,18 @@ static bool take_snapshot(const char *scheme, const char *hook, char **error)
     return ok;
 }
 
-static char pkg_zint_optstr[] = "nt";
+static char pkg_zint_optstr[] = "nty";
 
 static struct option pkg_zint_long_options[] = {
     { "dry-run",   no_argument, NULL, 'n' },
     { "temporary", no_argument, NULL, 't' },
+    { "yes",       no_argument, NULL, 'y' },
     { NULL,        no_argument, NULL, 0 },
 };
 
 static void pkg_zint_usage(void)
 {
-    fprintf(stderr, "usage: pkg %s rollback\n", NAME);
+    fprintf(stderr, "usage: pkg %s [-%s] rollback\n", NAME, pkg_zint_optstr);
 }
 
 static int pkg_zint_main(int argc, char **argv)
@@ -105,11 +106,11 @@ static int pkg_zint_main(int argc, char **argv)
     int ch;
     char *error;
     pkg_error_t status;
-    bool temporary, dry_run;
+    bool dry_run, temporary, yes;
 
     error = NULL;
     status = EPKG_FATAL;
-    dry_run = temporary = false;
+    dry_run = temporary = yes = false;
     while (-1 != (ch = getopt_long(argc, argv, pkg_zint_optstr, pkg_zint_long_options, NULL))) {
         switch (ch) {
             case 'n':
@@ -117,6 +118,9 @@ static int pkg_zint_main(int argc, char **argv)
                 break;
             case 't':
                 temporary = true;
+                break;
+            case 'y':
+                yes = true;
                 break;
             default:
                 status = EX_USAGE;
@@ -135,7 +139,7 @@ static int pkg_zint_main(int argc, char **argv)
             pkg_zint_usage();
             break;
         }
-        if (!method->rollback(ptc, method_data, temporary, &error)) {
+        if (!method->rollback(ptc, method_data, dry_run, temporary, &error)) {
             break;
         }
         status = EPKG_OK;

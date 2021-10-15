@@ -84,11 +84,11 @@ retry:
                 }
             }
             // </TODO: for transition, to be removed in a future version>
-            debug("skipping '%s', not created by zint (propery '%s' missing)", name, ZINT_VERSION_PROPERTY);
+            debug("skipping '%s', not created by zint (property '%s' missing)", name, ZINT_VERSION_PROPERTY);
             break;
         }
         if (!uzfs_fs_prop_get(fs, ZINT_HOOK_PROPERTY, hook, STR_SIZE(hook))) {
-            debug("skipping '%s', not created by zint (propery '%s' missing)", name, ZINT_HOOK_PROPERTY);
+            debug("skipping '%s', not created by zint (property '%s' missing)", name, ZINT_HOOK_PROPERTY);
             break;
         }
         debug("%s was created by zint version %" PRIu64 " for '%s' (%d)", name, version, hook, name_to_hook(hook));
@@ -192,7 +192,7 @@ static bool raw_zfs_snapshot(paths_to_check_t *ptc, const char *snapshot, const 
     return ok;
 }
 
-static bool raw_zfs_rollback(paths_to_check_t *UNUSED(ptc), void *UNUSED(data), bool UNUSED(temporary), char **error)
+static bool raw_zfs_rollback(paths_to_check_t *UNUSED(ptc), void *UNUSED(data), bool UNUSED(dry_run), bool UNUSED(temporary), char **error)
 {
     set_generic_error(error, "this functionnality is not (yet) implemented for raw ZFS");
 

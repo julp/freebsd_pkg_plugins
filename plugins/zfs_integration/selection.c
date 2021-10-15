@@ -65,14 +65,14 @@ bool selection_add(selection_t *sel, void *data)
         if (NULL == sel->head) {
             el->prev = el->next = NULL;
             sel->head = sel->tail = el;
-        } else if (sel->cmp(data, sel->head->data) > 0) {
+        } else if (sel->cmp(el->data, sel->head->data) < 0) {
             el->next = sel->head;
             el->next->prev = el;
             sel->head = el;
         } else {
             selection_element_t *cur;
 
-            for (cur = sel->head; NULL != cur->next && sel->cmp(data, cur->next->data) > 0; cur = cur->next)
+            for (cur = sel->head; NULL != cur->next && sel->cmp(el->data, cur->next->data) > 0; cur = cur->next)
                 ;
             el->next = cur->next;
             if (NULL != cur->next) {
