@@ -17,6 +17,7 @@
     _error_set(error, format ": %s", ## __VA_ARGS__, libbe_error_description(lbh))
 #endif /* DEBUG */
 
+extern bool has_zfs_properties(uzfs_fs_t *);
 extern bool set_zfs_properties(uzfs_fs_t *, const char *, char **);
 
 static const char *extract_name_from_be(nvpair_t *be)
@@ -136,20 +137,6 @@ static be_t *copy_be(nvpair_t *bepair)
     return ret;
 }
 
-// <TODO: for transition, to be removed in a future version>
-static bool str_starts_with(const char *string, const char *prefix)
-{
-    size_t prefix_len;
-
-    assert(NULL != string);
-    assert(NULL != prefix);
-
-    prefix_len = strlen(prefix);
-
-    return prefix_len <= strlen(string) && 0 == strncmp(string, prefix, prefix_len);
-}
-// </TODO: for transition, to be removed in a future version>
-
 #ifdef DEBUG
 # include <time.h>
 // selection_dump(bes, (void (*)(void *)) print_be);
@@ -195,7 +182,6 @@ static selection_t *fetch_sorted_zint_be(paths_to_check_t *ptc, libbe_handle_t *
             break;
         }
         for (cur = nvlist_next_nvpair(props, NULL); NULL != cur; cur = nvlist_next_nvpair(props, cur)) {
-            uint64_t version;
             uzfs_fs_t *fs;
             const char *name;
 
@@ -204,25 +190,10 @@ static selection_t *fetch_sorted_zint_be(paths_to_check_t *ptc, libbe_handle_t *
                 // TODO: real error handling
                 continue;
             }
-retry:
-            if (!uzfs_fs_prop_get_numeric(fs, ZINT_VERSION_PROPERTY, &version)) {
-                // <TODO: for transition, to be removed in a future version>
-                if (str_starts_with(name, "pkg_pre_upgrade_") && strlen(name) == STR_LEN("pkg_pre_upgrade_YYYY-mm-dd_HH:ii:ss")) {
-                    if (!set_zfs_properties(fs, "PRE:UPGRADE", NULL)) {
-                        continue;
-                    } else {
-                        goto retry;
-                    }
+            if (has_zfs_properties(fs)) {
+                if (!selection_add(bes, cur)) {
+                    // TODO: error handling
                 }
-                // </TODO: for transition, to be removed in a future version>
-                debug("property '%s' not set on '%s'", ZINT_VERSION_PROPERTY, uzfs_fs_get_name(fs));
-                debug("skipping BE '%s', not created by pkg zint", name);
-                continue;
-            } else {
-                debug("%s = %" PRIu64 " for %s", ZINT_VERSION_PROPERTY, version, uzfs_fs_get_name(fs));
-            }
-            if (!selection_add(bes, cur)) {
-                // TODO: error handling
             }
             if (NULL != fs) {
                 uzfs_fs_close(fs);

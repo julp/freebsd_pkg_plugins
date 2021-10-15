@@ -15,6 +15,9 @@ bool set_zfs_properties(uzfs_fs_t *fs, const char *hook, char **error)
 {
     bool ok;
 
+    assert(NULL != fs);
+    assert(NULL != hook);
+
     ok = false;
     do {
 #if 0
@@ -38,6 +41,57 @@ bool set_zfs_properties(uzfs_fs_t *fs, const char *hook, char **error)
             set_generic_error(error, "setting property '%s' to '%s' on '%s' failed", ZINT_HOOK_PROPERTY, hook, uzfs_fs_get_name(fs));
             break;
         }
+        ok = true;
+    } while (false);
+
+    return ok;
+}
+
+// <TODO: for transition, to be removed in a future version>
+static bool str_starts_with(const char *string, const char *prefix)
+{
+    size_t prefix_len;
+
+    assert(NULL != string);
+    assert(NULL != prefix);
+
+    prefix_len = strlen(prefix);
+
+    return prefix_len <= strlen(string) && 0 == strncmp(string, prefix, prefix_len);
+}
+// </TODO: for transition, to be removed in a future version>
+
+bool has_zfs_properties(uzfs_fs_t *fs)
+{
+    bool ok;
+    extern int name_to_hook(const char *);
+
+    assert(NULL != fs);
+
+    ok = false;
+    do {
+        char hook[100];
+        uint64_t version;
+        const char *name;
+
+        name = uzfs_fs_get_name(fs);
+retry:
+        if (!uzfs_fs_prop_get_numeric(fs, ZINT_VERSION_PROPERTY, &version)) {
+            // <TODO: for transition, to be removed in a future version>
+            if (str_starts_with(name, "pkg_pre_upgrade_") && strlen(name) == STR_LEN("pkg_pre_upgrade_YYYY-mm-dd_HH:ii:ss")) {
+                if (set_zfs_properties(fs, "PRE:UPGRADE", NULL)) {
+                    goto retry;
+                }
+            }
+            // </TODO: for transition, to be removed in a future version>
+            debug("skipping '%s', not created by zint (propery '%s' missing)", name, ZINT_VERSION_PROPERTY);
+            break;
+        }
+        if (!uzfs_fs_prop_get(fs, ZINT_HOOK_PROPERTY, hook, STR_SIZE(hook))) {
+            debug("skipping '%s', not created by zint (propery '%s' missing)", name, ZINT_HOOK_PROPERTY);
+            break;
+        }
+        debug("%s was created by zint version %" PRIu64 " for '%s' (%d)", name, version, hook, name_to_hook(hook));
         ok = true;
     } while (false);
 
