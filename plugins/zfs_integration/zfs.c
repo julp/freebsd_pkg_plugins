@@ -611,6 +611,7 @@ bool uzfs_fs_prop_get(uzfs_fs_t *fs, const char *name, char *value, size_t value
     ok = false;
     do {
         if (NULL != strchr(name, ':')) {
+            char *v;
             nvlist_t *props, *propval;
 
             if (NULL == (props = zfs_get_user_props(fs->fh))) {
@@ -619,7 +620,10 @@ bool uzfs_fs_prop_get(uzfs_fs_t *fs, const char *name, char *value, size_t value
             if (0 != nvlist_lookup_nvlist(props, name, &propval)) {
                 break;
             }
-            if (0 != nvlist_lookup_string(propval, ZPROP_VALUE, &value)) {
+            if (0 != nvlist_lookup_string(propval, ZPROP_VALUE, &v)) {
+                break;
+            }
+            if (strlcpy(value, v, value_size) >= value_size) {
                 break;
             }
         } else {
