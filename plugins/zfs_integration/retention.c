@@ -14,43 +14,45 @@
 typedef enum {
     R(DISABLED),
     R(BY_COUNT),
+    //R(BY_SIZE),
     R(BY_CREATION),
 } retention_type_t;
 
 struct retention_t {
-    uint64_t value;
+    uint64_t limit;
     retention_type_t type;
 };
 
-// TODO: DRY with plugin_zfs_integration.c
-static char CFG_RETENTION[] = "RETENTION";
-
-static bool disabled_retention_keep(retention_t *UNUSED(retention), uint64_t UNUSED(value))
+static bool retention_disabled_keep(uint64_t UNUSED(value), uint64_t UNUSED(limit), uint64_t *UNUSED(state))
 {
     return true;
 }
 
-static bool total_retention_keep(retention_t *retention, uint64_t value)
+static bool retention_by_count_keep(uint64_t UNUSED(value), uint64_t limit, uint64_t *state)
 {
     bool keep;
 
-    keep = retention->value >= value;
+    keep = *state <= limit;
     if (keep) {
-        --retention->value;
+        ++*state;
     }
 
     return keep;
 }
 
-static bool creation_retention_keep(retention_t *retention, uint64_t value)
+static bool retention_by_creation_keep(uint64_t value, uint64_t limit, uint64_t *UNUSED(state))
 {
-    return value >= retention->value;
+    return value >= limit;
 }
 
-static bool (*callbacks[])(retention_t *, uint64_t) = {
-    [ R(DISABLED) ] = disabled_retention_keep,
-    [ R(BY_COUNT) ] = total_retention_keep,
-    [ R(BY_CREATION) ] = creation_retention_keep,
+struct {
+    const char *name;
+    bool (*callback)(uint64_t, uint64_t, uint64_t *);
+} static const kinds[] = {
+    [ R(DISABLED) ] = {"disabled: no deletion", retention_disabled_keep},
+    [ R(BY_COUNT) ] = {"by count: keep the N most recent snapshots", retention_by_count_keep},
+    //[ R(BY_SIZE) ] = {"", },
+    [ R(BY_CREATION) ] = {"by creation: keep the snapshots over the last N period", retention_by_creation_keep},
 };
 
 #define MINUTE 60
@@ -75,34 +77,45 @@ static const struct {
     { S("year"), YEAR },
 };
 
-// static
-void retention_init(retention_t *retention)
+static retention_t *retention_create(void)
 {
-    assert(NULL != retention);
+    retention_t *retention;
 
-    retention->value = 0;
-    retention->type = R(DISABLED);
+    if (NULL != (retention = malloc(sizeof(*retention)))) {
+        retention->limit = 0;
+        retention->type = R(DISABLED);
+    }
+
+    return retention;
+}
+
+void retention_destroy(retention_t *retention)
+{
+    free(retention);
 }
 
 // TODO: bool (*)(retention_t *, uint64_t) + uint64_t * ?
-bool retention_parse(const pkg_object *object, retention_t *retention, char **error)
+retention_t *retention_parse(const pkg_object *object, uint64_t *limit, char **error)
 {
-    bool ok;
-    pkg_object_t type;
+    retention_t *ret, *retention;
 
-    assert(NULL != retention);
+    assert(NULL != limit);
 
-    ok = false;
-    retention->type = R(DISABLED);
-    type = pkg_object_type(object);
+    ret = retention = NULL;
     do {
+        pkg_object_t type;
+
+        if (NULL == (retention = retention_create())) {
+            break;
+        }
+        type = pkg_object_type(object);
         if (PKG_NULL == type) {
             // NOP: accepted as disabled
         } else if (PKG_BOOL == type && false == pkg_object_bool(object)) {
             // NOP: accepted as disabled
         } else if (PKG_INT == type) {
             if (pkg_object_int(object) > 0) {
-                retention->value = pkg_object_int(object);
+                retention->limit = pkg_object_int(object);
                 retention->type = R(BY_COUNT);
             } else {
                 // NOP: accepted as disabled
@@ -124,7 +137,7 @@ bool retention_parse(const pkg_object *object, retention_t *retention, char **er
                 break;
             }
             if ('\0' == *endptr) {
-                retention->value = value;
+                retention->limit = value;
                 retention->type = value > 0 ? R(BY_COUNT) : R(DISABLED);
             } else if (value <= 0) {
                 set_generic_error(error, "expected quantified %s value to be > 0, got: %lld", CFG_RETENTION, value);
@@ -137,7 +150,7 @@ bool retention_parse(const pkg_object *object, retention_t *retention, char **er
                     ;
                 for (i = 0; i < ARRAY_SIZE(retention_units); i++) {
                     if (0 == /*ascii_*/strncasecmp(p, retention_units[i].name, retention_units[i].name_len) && '\0' == p[retention_units[i].name_len]) {
-                        retention->value = time(NULL) - value * retention_units[i].value;
+                        retention->limit = time(NULL) - value * retention_units[i].value;
                         retention->type = R(BY_CREATION);
                         break;
                     }
@@ -151,11 +164,14 @@ bool retention_parse(const pkg_object *object, retention_t *retention, char **er
             set_generic_error(error, "expected %s to be either false, null, an integer or a string, got: %s (%d)", CFG_RETENTION, pkg_object_string(object), type);
             break;
         }
-        ok = true;
+        ret = retention;
     } while (false);
-    debug("retention : type = %d, value = %" PRIu64, retention->type, retention->value);
+    debug("retention : type = %d, limit = %" PRIu64, retention->type, retention->limit);
+    if (ret != retention) {
+        retention_destroy(retention);
+    }
 
-    return ok;
+    return ret;
 }
 
 bool retention_disabled(const retention_t *retention)

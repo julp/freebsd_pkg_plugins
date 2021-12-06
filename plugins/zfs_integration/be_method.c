@@ -17,9 +17,10 @@
     _error_set(error, format ": %s", ## __VA_ARGS__, libbe_error_description(lbh))
 #endif /* DEBUG */
 
-// defined by raw_zfs_method.c
+// <defined by raw_zfs_method.c>
 extern bool has_zfs_properties(uzfs_fs_t *);
 extern bool set_zfs_properties(uzfs_fs_t *, const char *, char **);
+// </defined by raw_zfs_method.c>
 
 static const char *extract_name_from_be(nvpair_t *be)
 {
@@ -96,6 +97,7 @@ static int compare_be_by_creation_date_desc(be_t *a, be_t *b)
     return (b->creation >= a->creation ? b->creation - a->creation : -1);
 }
 
+#if 0
 static int compare_be_by_creation_date_asc(be_t *a, be_t *b)
 {
     assert(NULL != a);
@@ -103,6 +105,7 @@ static int compare_be_by_creation_date_asc(be_t *a, be_t *b)
 
     return (a->creation >= b->creation ? a->creation - b->creation : -1);
 }
+#endif
 
 static void destroy_be(be_t *be)
 {
@@ -154,7 +157,7 @@ static void print_be(be_t *be)
     localtime_r(&time, &tm);
     written = strftime(buffer, STR_SIZE(buffer), "%F %T", &tm);
     assert(written < STR_LEN(buffer));
-    fprintf(stderr, "%s = %s (%" PRIu64 ")\n", be->name, buffer, be->creation);
+    fprintf(stderr, "(%s) %s = %s (%" PRIu64 ")\n", __func__, be->name, buffer, be->creation);
 }
 #endif /* DEBUG */
 

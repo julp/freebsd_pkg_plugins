@@ -224,15 +224,16 @@ static const char *schemes[] = {
 
 static char CFG_ON[] = "ON";
 static char CFG_FORCE[] = "FORCE";
-static char CFG_RETENTION[] = "RETENTION";
 
 int pkg_plugin_init(struct pkg_plugin *p)
 {
     char *error;
     pkg_error_t status;
+    retention_t *retention;
 
     self = p;
     error = NULL;
+    retention = NULL;
 
     pkg_plugin_set(p, PKG_PLUGIN_NAME, NAME);
     pkg_plugin_set(p, PKG_PLUGIN_DESC, DESCRIPTION);
@@ -255,7 +256,7 @@ int pkg_plugin_init(struct pkg_plugin *p)
     pkg_plugin_parse(p);
 
     do {
-        char retention[1000];
+        uint64_t limit;
         pkg_object_t object_type;
         const pkg_object *config, *object;
 
@@ -264,7 +265,7 @@ int pkg_plugin_init(struct pkg_plugin *p)
         debug("<config>\n%s\n</config>", pkg_object_dump(config));
 
         object = pkg_object_find(config, CFG_RETENTION);
-        if (!retention_parse(object, (retention_t *) retention, &error)) {
+        if (NULL == (retention = retention_parse(object, &limit, &error))) {
             break;
         }
 
@@ -315,6 +316,9 @@ int pkg_plugin_init(struct pkg_plugin *p)
         }
         assert(NULL != method);
     } while (false);
+    if (NULL != retention) {
+        retention_destroy(retention);
+    }
     if (EPKG_FATAL == status && NULL != error) {
         pkg_plugin_error(self, "%s", error);
         error_free(&error);

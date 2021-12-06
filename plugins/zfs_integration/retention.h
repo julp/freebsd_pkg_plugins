@@ -4,6 +4,9 @@
 #include <stdint.h>
 #include <pkg.h>
 
+#define CFG_RETENTION "RETENTION"
+
 typedef struct retention_t retention_t;
 
-bool retention_parse(const pkg_object *, retention_t *, char **);
+void retention_destroy(retention_t *);
+retention_t *retention_parse(const pkg_object *, uint64_t *, char **);
