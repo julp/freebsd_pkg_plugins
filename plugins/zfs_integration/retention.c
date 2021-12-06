@@ -22,6 +22,9 @@ struct retention_t {
     retention_type_t type;
 };
 
+// TODO: DRY with plugin_zfs_integration.c
+static char CFG_RETENTION[] = "RETENTION";
+
 static bool disabled_retention_keep(retention_t *UNUSED(retention), uint64_t UNUSED(value))
 {
     return true;
@@ -117,14 +120,14 @@ bool retention_parse(const pkg_object *object, retention_t *retention, char **er
             errno = 0;
             value = strtoll(string, &endptr, 10);
             if (errno == ERANGE && (LONG_MAX == value || LONG_MIN == value)) {
-                set_generic_error(error, "value '%s' for RETENTION setting is out of the range [%lld;%lld]", string, LONG_MIN, LONG_MAX);
+                set_generic_error(error, "value '%s' for %s setting is out of the range [%lld;%lld]", string, CFG_RETENTION, LONG_MIN, LONG_MAX);
                 break;
             }
             if ('\0' == *endptr) {
                 retention->value = value;
                 retention->type = value > 0 ? R(BY_COUNT) : R(DISABLED);
             } else if (value <= 0) {
-                set_generic_error(error, "expected quantified RETENTION value to be > 0, got: %lld", value);
+                set_generic_error(error, "expected quantified %s value to be > 0, got: %lld", CFG_RETENTION, value);
                 break;
             } else /*if (value > 0)*/ {
                 char *p;
@@ -140,12 +143,12 @@ bool retention_parse(const pkg_object *object, retention_t *retention, char **er
                     }
                 }
                 if (R(BY_CREATION) != retention->type) {
-                    set_generic_error(error, "unable to parse '%s' for RETENTION setting", string);
+                    set_generic_error(error, "unable to parse '%s' for %s setting", CFG_RETENTION, string);
                     break;
                 }
             }
         } else {
-            set_generic_error(error, "expected RETENTION to be either false, null, an integer or a string, got: %s (%d)", pkg_object_string(object), type);
+            set_generic_error(error, "expected %s to be either false, null, an integer or a string, got: %s (%d)", CFG_RETENTION, pkg_object_string(object), type);
             break;
         }
         ok = true;
