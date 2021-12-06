@@ -178,6 +178,7 @@ static selection_t *fetch_sorted_zint_snapshot(uzfs_fs_t *fs, CmpFunc cmp, char 
     return ret;
 }
 
+// TODO: handle canmount=off
 static bm_code_t raw_zfs_suitable(paths_to_check_t *ptc, void **data, char **error)
 {
     bm_code_t retval;
