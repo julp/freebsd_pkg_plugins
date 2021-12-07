@@ -18,11 +18,6 @@ typedef enum {
     R(BY_CREATION),
 } retention_type_t;
 
-struct retention_t {
-    uint64_t limit;
-    retention_type_t type;
-};
-
 static bool retention_disabled_keep(uint64_t UNUSED(value), uint64_t UNUSED(limit), uint64_t *UNUSED(state))
 {
     return true;
@@ -77,50 +72,31 @@ static const struct {
     { S("year"), YEAR },
 };
 
-static retention_t *retention_create(void)
+char *retention_parse(const pkg_object *object, uint64_t *limit, char **error)
 {
-    retention_t *retention;
-
-    if (NULL != (retention = malloc(sizeof(*retention)))) {
-        retention->limit = 0;
-        retention->type = R(DISABLED);
-    }
-
-    return retention;
-}
-
-void retention_destroy(retention_t *retention)
-{
-    free(retention);
-}
-
-// TODO: bool (*)(retention_t *, uint64_t) + uint64_t * ?
-retention_t *retention_parse(const pkg_object *object, uint64_t *limit, char **error)
-{
-    retention_t *ret, *retention;
+    char *ret, *retention;
 
     assert(NULL != limit);
 
     ret = retention = NULL;
     do {
-        pkg_object_t type;
+        pkg_object_t object_type;
+        retention_type_t retention_type;
 
-        if (NULL == (retention = retention_create())) {
-            break;
-        }
-        type = pkg_object_type(object);
-        if (PKG_NULL == type) {
+        retention_type = R(DISABLED);
+        object_type = pkg_object_type(object);
+        if (PKG_NULL == object_type) {
             // NOP: accepted as disabled
-        } else if (PKG_BOOL == type && false == pkg_object_bool(object)) {
+        } else if (PKG_BOOL == object_type && false == pkg_object_bool(object)) {
             // NOP: accepted as disabled
-        } else if (PKG_INT == type) {
+        } else if (PKG_INT == object_type) {
             if (pkg_object_int(object) > 0) {
-                retention->limit = pkg_object_int(object);
-                retention->type = R(BY_COUNT);
+                *limit = pkg_object_int(object);
+                retention_type = R(BY_COUNT);
             } else {
                 // NOP: accepted as disabled
             }
-        } else if (PKG_STRING == type) {
+        } else if (PKG_STRING == object_type) {
             char *endptr;
             long long value;
             const char *string;
@@ -137,8 +113,8 @@ retention_t *retention_parse(const pkg_object *object, uint64_t *limit, char **e
                 break;
             }
             if ('\0' == *endptr) {
-                retention->limit = value;
-                retention->type = value > 0 ? R(BY_COUNT) : R(DISABLED);
+                *limit = value;
+                retention_type = value > 0 ? R(BY_COUNT) : R(DISABLED);
             } else if (value <= 0) {
                 set_generic_error(error, "expected quantified %s value to be > 0, got: %lld", CFG_RETENTION, value);
                 break;
@@ -150,36 +126,24 @@ retention_t *retention_parse(const pkg_object *object, uint64_t *limit, char **e
                     ;
                 for (i = 0; i < ARRAY_SIZE(retention_units); i++) {
                     if (0 == /*ascii_*/strncasecmp(p, retention_units[i].name, retention_units[i].name_len) && '\0' == p[retention_units[i].name_len]) {
-                        retention->limit = time(NULL) - value * retention_units[i].value;
-                        retention->type = R(BY_CREATION);
+                        *limit = time(NULL) - value * retention_units[i].value;
+                        retention_type = R(BY_CREATION);
                         break;
                     }
                 }
-                if (R(BY_CREATION) != retention->type) {
+                if (R(BY_CREATION) != retention_type) {
                     set_generic_error(error, "unable to parse '%s' for %s setting", CFG_RETENTION, string);
                     break;
                 }
             }
         } else {
-            set_generic_error(error, "expected %s to be either false, null, an integer or a string, got: %s (%d)", CFG_RETENTION, pkg_object_string(object), type);
+            set_generic_error(error, "expected %s to be either false, null, an integer or a string, got: %s (%d)", CFG_RETENTION, pkg_object_string(object), object_type);
             break;
         }
         ret = retention;
+        debug("retention : type = %d, limit = %" PRIu64, retention_type, *limit);
     } while (false);
-    debug("retention : type = %d, limit = %" PRIu64, retention->type, retention->limit);
-    if (ret != retention) {
-        retention_destroy(retention);
-    }
 
-    return ret;
-}
-
-bool retention_disabled(const retention_t *retention)
-{
-    return retention->type == R(DISABLED);
-}
-
-bool retention_keep(retention_t *UNUSED(retention), uint64_t UNUSED(value))
-{
-    return true;
+//     return ret;
+    return "TODO";
 }

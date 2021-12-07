@@ -60,7 +60,7 @@ void prober_destroy(paths_to_check_t *ptc)
 
     for (i = 0; i < _FS_COUNT; i++) {
         if (NULL != ptc->paths[i].fs) {
-            uzfs_fs_close(ptc->paths[i].fs);
+            uzfs_close(&ptc->paths[i].fs);
         }
     }
     uzfs_fini(ptc->lh);

@@ -18,8 +18,8 @@
 #endif /* DEBUG */
 
 // <defined by raw_zfs_method.c>
-extern bool has_zfs_properties(uzfs_fs_t *);
-extern bool set_zfs_properties(uzfs_fs_t *, const char *, char **);
+extern bool has_zfs_properties(uzfs_ptr_t *);
+extern bool set_zfs_properties(uzfs_ptr_t *, const char *, char **);
 // </defined by raw_zfs_method.c>
 
 static const char *extract_name_from_be(nvpair_t *be)
@@ -63,9 +63,9 @@ static bool extract_creation_from_be(nvpair_t *be, uint64_t *creation)
     return ok;
 }
 
-static uzfs_fs_t *be_to_fs(paths_to_check_t *ptc, libbe_handle_t *lbh, const char *be, char **error)
+static uzfs_ptr_t *be_to_fs(paths_to_check_t *ptc, libbe_handle_t *lbh, const char *be, char **error)
 {
-    uzfs_fs_t *fs;
+    uzfs_ptr_t *fs;
 
     fs = NULL;
     do {
@@ -74,7 +74,7 @@ static uzfs_fs_t *be_to_fs(paths_to_check_t *ptc, libbe_handle_t *lbh, const cha
         if (!path_join(dataset, dataset + STR_SIZE(dataset), error, be_root_path(lbh), be, NULL)) {
             break;
         }
-        if (NULL == (fs = uzfs_fs_from_name(ptc->lh, dataset))) {
+        if (NULL == (fs = uzfs_from_name(ptc->lh, dataset, UZFS_TYPE_FILESYSTEM))) {
             set_generic_error(error, "couldn't acquire a ZFS descriptor for BE '%s'", be);
             break;
         }
@@ -86,7 +86,7 @@ static uzfs_fs_t *be_to_fs(paths_to_check_t *ptc, libbe_handle_t *lbh, const cha
 typedef struct {
     char name[BE_MAXPATHLEN];
     uint64_t creation;
-//     uzfs_fs_t *fs;
+//     uzfs_ptr_t *fs;
 } be_t;
 
 static int compare_be_by_creation_date_desc(be_t *a, be_t *b)
@@ -112,11 +112,12 @@ static void destroy_be(be_t *be)
     assert(NULL != be);
 
 //     if (NULL != be->fs) {
-//         uzfs_fs_close(be->fs);
+//         uzfs_close(&be->fs);
 //     }
     free(be);
 }
 
+// used as DupFunc
 static be_t *copy_be(nvpair_t *bepair)
 {
     be_t *be, *ret;
@@ -188,7 +189,7 @@ static selection_t *fetch_sorted_zint_be(paths_to_check_t *ptc, libbe_handle_t *
             break;
         }
         for (cur = nvlist_next_nvpair(props, NULL); NULL != cur; cur = nvlist_next_nvpair(props, cur)) {
-            uzfs_fs_t *fs;
+            uzfs_ptr_t *fs;
             const char *name;
 
             name = extract_name_from_be(cur);
@@ -202,7 +203,7 @@ static selection_t *fetch_sorted_zint_be(paths_to_check_t *ptc, libbe_handle_t *
                 }
             }
             if (NULL != fs) {
-                uzfs_fs_close(fs);
+                uzfs_close(&fs);
             }
         }
         ret = bes;
@@ -260,7 +261,6 @@ static bm_code_t be_suitable(paths_to_check_t *ptc, void **data, char **error)
             ok = false;
             bes = NULL;
             do {
-//                 if (!retention_disabled()) {
                 if (NULL == (bes = fetch_sorted_zint_be(ptc, lbh, (CmpFunc) compare_be_by_creation_date_desc, error))) {
                     break;
                 }
@@ -285,7 +285,7 @@ static bm_code_t be_suitable(paths_to_check_t *ptc, void **data, char **error)
 static bool be_take_snapshot(paths_to_check_t *ptc, const char *snapshot, const char *hook, void *data, char **error)
 {
     bool ok;
-    uzfs_fs_t *fs;
+    uzfs_ptr_t *fs;
 
     assert(NULL != data);
 
@@ -308,7 +308,7 @@ static bool be_take_snapshot(paths_to_check_t *ptc, const char *snapshot, const 
         ok = true;
     } while (false);
     if (NULL != fs) {
-        uzfs_fs_close(fs);
+        uzfs_close(&fs);
     }
 
     return ok;
