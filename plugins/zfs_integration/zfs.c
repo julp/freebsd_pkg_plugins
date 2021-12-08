@@ -137,32 +137,23 @@ typedef struct {
     uzfs_to_libzfs_handle_callback_t to_libzfs_handle;
 } callbacks_t;
 
+#define K(type, close, get_name, from_name, to_pool_name, to_libzfs_handle) \
+    { \
+        type, \
+        (uzfs_close_callback_t) close, \
+        (uzfs_get_name_callback_t) get_name, \
+        (uzfs_from_name_callback_t) from_name, \
+        (uzfs_to_pool_name_callback_t) to_pool_name, \
+        (uzfs_to_libzfs_handle_callback_t) to_libzfs_handle, \
+    }
+
 static callbacks_t callbacks[] = {
-    [ UZFS_TYPE_POOL ] = {
-        ZFS_TYPE_POOL,
-        (uzfs_close_callback_t) zpool_close,
-        (uzfs_get_name_callback_t) zpool_get_name,
-        (uzfs_from_name_callback_t) uzfs_zpool_from_name,
-        (uzfs_to_pool_name_callback_t) zpool_get_name,
-        (uzfs_to_libzfs_handle_callback_t) zpool_get_handle,
-    },
-    [ UZFS_TYPE_FILESYSTEM ] = {
-        ZFS_TYPE_FILESYSTEM,
-        (uzfs_close_callback_t) zfs_close,
-        (uzfs_get_name_callback_t) zfs_get_name,
-        (uzfs_from_name_callback_t) zfs_open,
-        (uzfs_to_pool_name_callback_t) zfs_get_pool_name,
-        (uzfs_to_libzfs_handle_callback_t) zfs_get_handle,
-    },
-    [ UZFS_TYPE_SNAPSHOT ] = {
-        ZFS_TYPE_SNAPSHOT,
-        (uzfs_close_callback_t) zfs_close,
-        (uzfs_get_name_callback_t) zfs_get_name,
-        (uzfs_from_name_callback_t) zfs_open,
-        (uzfs_to_pool_name_callback_t) zfs_get_pool_name,
-        (uzfs_to_libzfs_handle_callback_t) zfs_get_handle,
-    },
+    [ UZFS_TYPE_POOL ] = K(ZFS_TYPE_POOL, zpool_close, zpool_get_name, uzfs_zpool_from_name, zpool_get_name, zpool_get_handle),
+    [ UZFS_TYPE_FILESYSTEM ] = K(ZFS_TYPE_FILESYSTEM, zfs_close, zfs_get_name, zfs_open, zfs_get_pool_name, zfs_get_handle),
+    [ UZFS_TYPE_SNAPSHOT ] = K(ZFS_TYPE_SNAPSHOT, zfs_close, zfs_get_name, zfs_open, zfs_get_pool_name, zfs_get_handle),
 };
+
+#undef K
 
 /* ========== wrapping ========== */
 
