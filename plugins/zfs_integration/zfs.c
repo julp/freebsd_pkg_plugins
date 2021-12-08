@@ -105,7 +105,7 @@ struct uzfs_ptr_t {
 #define assert_uzfs_ptr_t_is(/*uzfs_ptr_t **/h, /*int*/ types) \
     do { \
         assert_valid_uzfs_ptr_t(h); \
-        assert(0 == ((h)->klass->type & ~types)); \
+        assert(0 == ((h)->klass->type & ~(types))); \
     } while (false);
 
 /* ========== (un)initialization ========== */
