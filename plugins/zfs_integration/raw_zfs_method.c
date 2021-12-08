@@ -34,11 +34,11 @@ bool set_zfs_properties(uzfs_ptr_t *fs, const char *hook, char **error)
             kind = "unknown";
         }
 #endif
-        if (!uzfs_fs_prop_set_numeric(fs, ZINT_VERSION_PROPERTY, ZINT_VERSION_NUMBER, error)) {
+        if (!uzfs_prop_set_numeric(fs, ZINT_VERSION_PROPERTY, ZINT_VERSION_NUMBER, error)) {
             set_generic_error(error, "setting property '%s' to '%" PRIu64 "' on '%s' failed", ZINT_VERSION_PROPERTY, ZINT_VERSION_NUMBER, uzfs_get_name(fs));
             break;
         }
-        if (!uzfs_fs_prop_set(fs, ZINT_HOOK_PROPERTY, hook, error)) {
+        if (!uzfs_prop_set(fs, ZINT_HOOK_PROPERTY, hook, error)) {
             set_generic_error(error, "setting property '%s' to '%s' on '%s' failed", ZINT_HOOK_PROPERTY, hook, uzfs_get_name(fs));
             break;
         }
