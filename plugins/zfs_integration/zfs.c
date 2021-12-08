@@ -84,29 +84,29 @@ struct uzfs_ptr_t {
 
 /* ========== assertions ========== */
 
-static inline void assert_valid_uzfs_type_t(uzfs_type_t type)
-{
-    assert(type >= UZFS_TYPE_FIRST && type <= UZFS_TYPE_LAST);
-}
+#define assert_valid_uzfs_type_t(/*uzfs_type_t*/ type) \
+    do { \
+        assert(type >= UZFS_TYPE_FIRST && type <= UZFS_TYPE_LAST); \
+    } while (false);
 
-static inline void assert_valid_uzfs_ptr_t(uzfs_ptr_t *h)
-{
-    assert(NULL != h);
-    assert(NULL != h->ptr);
-    assert(NULL != h->klass);
-}
+#define assert_valid_uzfs_ptr_t(/*uzfs_ptr_t **/h) \
+    do { \
+        assert(NULL != (h)); \
+        assert(NULL != (h)->ptr); \
+        assert(NULL != (h)->klass); \
+    } while (false);
 
-static inline void assert_valid_uzfs_lib_t(uzfs_lib_t *lib)
-{
-    assert(NULL != lib);
-    assert(NULL != lib->lh);
-}
+#define assert_valid_uzfs_lib_t(/*uzfs_lib_t **/lib) \
+    do { \
+        assert(NULL != lib); \
+        assert(NULL != lib->lh); \
+    } while (false);
 
-static inline void assert_uzfs_ptr_t_is(uzfs_ptr_t *h, int type)
-{
-    assert_valid_uzfs_ptr_t(h);
-    assert(0 == (h->klass->type & ~type));
-}
+#define assert_uzfs_ptr_t_is(/*uzfs_ptr_t **/h, /*int*/ types) \
+    do { \
+        assert_valid_uzfs_ptr_t(h); \
+        assert(0 == ((h)->klass->type & ~types)); \
+    } while (false);
 
 /* ========== (un)initialization ========== */
 
