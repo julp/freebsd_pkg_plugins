@@ -43,6 +43,6 @@ bool uzfs_snapshot(uzfs_ptr_t *, const char *, bool, char *, size_t, bool, char 
 bool uzfs_iter_snapshots(uzfs_ptr_t *, bool (*)(uzfs_ptr_t *, void *, char **), void *, char **);
 
 bool uzfs_get_prop(uzfs_ptr_t *, const char *, char *, size_t);
-bool uzfs_fs_prop_get_numeric(uzfs_ptr_t *, const char *, uint64_t *); // TODO
+bool uzfs_get_prop_numeric(uzfs_ptr_t *, const char *, uint64_t *);
 bool uzfs_set_prop(uzfs_ptr_t *, const char *, const char *, char **);
 bool uzfs_set_prop_numeric(uzfs_ptr_t *, const char *, uint64_t, char **);

@@ -356,6 +356,33 @@ bool uzfs_get_prop(uzfs_ptr_t *h, const char *name, char *value, size_t value_si
     return h->klass->get_prop(h->ptr, name, value, value_size);
 }
 
+bool uzfs_get_prop_numeric(uzfs_ptr_t *h, const char *name, uint64_t *value)
+{
+    bool ok;
+
+    assert_valid_uzfs_ptr_t(h);
+    assert(NULL != name);
+    assert(NULL != value);
+
+    ok = false;
+    do {
+        char propstr[128], *endptr;
+        unsigned long long propui;
+
+        if (!h->klass->get_prop(h->ptr, name, propstr, STR_SIZE(propstr))) {
+            break;
+        }
+        propui = strtoull(propstr, &endptr, 10);
+        if ('\0' != *endptr || (ERANGE == errno && ULLONG_MAX == propui)) {
+            break;
+        }
+        *value = propui;
+        ok = true;
+    } while (false);
+
+    return ok;
+}
+
 bool uzfs_set_prop(uzfs_ptr_t *h, const char *name, const char *value, char **error)
 {
     int ret;
@@ -586,57 +613,6 @@ bool uzfs_rollback(uzfs_ptr_t *fs, uzfs_ptr_t *snapshot, bool force, char **erro
         if (0 != zfs_rollback(fs->fh, snapshot->fh, force)) {
             set_zfs_error(error, to_libzfs_handle(fs), "failed to rollback '%s' to '%s'", zfs_get_name(fs->fh), zfs_get_name(snapshot->fh));
             break;
-        }
-        ok = true;
-    } while (false);
-
-    return ok;
-}
-
-bool uzfs_fs_prop_get_numeric(uzfs_ptr_t *fs, const char *name, uint64_t *value)
-{
-    bool ok;
-
-    assert_uzfs_ptr_t_is(fs, ZFS_TYPE_FILESYSTEM | ZFS_TYPE_SNAPSHOT);
-    assert(NULL != name);
-    assert(NULL != value);
-
-    ok = false;
-    do {
-        if (NULL != strchr(name, ':')) {
-            char *propstr, *endptr;
-            nvlist_t *props, *propval;
-            unsigned long long propui;
-
-            if (NULL == (props = zfs_get_user_props(fs->fh))) {
-                break;
-            }
-            if (0 != nvlist_lookup_nvlist(props, name, &propval)) {
-                break;
-            }
-            if (0 != nvlist_lookup_string(propval, ZPROP_VALUE, &propstr)) {
-                break;
-            }
-            // <partie qui change>
-            propui = strtoull(propstr, &endptr, 10);
-            if ('\0' != *endptr || (errno == ERANGE && propui == ULLONG_MAX)) {
-                break;
-            }
-            *value = propui;
-            // </partie qui change>
-        } else {
-            int prop;
-
-            if (ZPROP_INVAL == (prop = zprop_name_to_prop(name, fs->klass->type))) {
-                //set_generic_error(error, "property '%s' is not valid", name);
-                break;
-            }
-            // <partie qui change>
-            // uint64_t zfs_prop_get_int(zfs_handle_t *, zfs_prop_t);
-            if (0 != zfs_prop_get_numeric(fs->fh, prop, value, NULL, NULL, 0)) {
-                break;
-            }
-            // </partie qui change>
         }
         ok = true;
     } while (false);

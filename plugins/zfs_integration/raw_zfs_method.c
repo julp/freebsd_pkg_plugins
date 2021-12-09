@@ -80,7 +80,7 @@ bool has_zfs_properties(uzfs_ptr_t *fs)
             basename = arobase + 1;
         }
 retry:
-        if (!uzfs_fs_prop_get_numeric(fs, ZINT_VERSION_PROPERTY, &version)) {
+        if (!uzfs_get_prop_numeric(fs, ZINT_VERSION_PROPERTY, &version)) {
             // <TODO: for transition, to be removed in a future version>
             if (str_starts_with(basename, "pkg_pre_upgrade_") && strlen(basename) == STR_LEN("pkg_pre_upgrade_YYYY-mm-dd_HH:ii:ss")) {
                 if (set_zfs_properties(fs, "PRE:UPGRADE", NULL)) {
@@ -149,7 +149,7 @@ static snapshot_t *copy_snapshot(uzfs_ptr_t *fs)
         if (strlcpy(snap->name, uzfs_get_name(fs), STR_SIZE(snap->name)) >= STR_SIZE(snap->name)) {
             break;
         }
-        if (!uzfs_fs_prop_get_numeric(fs, "creation", &snap->creation)) {
+        if (!uzfs_get_prop_numeric(fs, "creation", &snap->creation)) {
             break;
         }
         ret = snap;
