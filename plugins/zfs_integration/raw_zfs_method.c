@@ -34,11 +34,11 @@ bool set_zfs_properties(uzfs_ptr_t *fs, const char *hook, char **error)
             kind = "unknown";
         }
 #endif
-        if (!uzfs_prop_set_numeric(fs, ZINT_VERSION_PROPERTY, ZINT_VERSION_NUMBER, error)) {
+        if (!uzfs_set_prop_numeric(fs, ZINT_VERSION_PROPERTY, ZINT_VERSION_NUMBER, error)) {
             set_generic_error(error, "setting property '%s' to '%" PRIu64 "' on '%s' failed", ZINT_VERSION_PROPERTY, ZINT_VERSION_NUMBER, uzfs_get_name(fs));
             break;
         }
-        if (!uzfs_prop_set(fs, ZINT_HOOK_PROPERTY, hook, error)) {
+        if (!uzfs_set_prop(fs, ZINT_HOOK_PROPERTY, hook, error)) {
             set_generic_error(error, "setting property '%s' to '%s' on '%s' failed", ZINT_HOOK_PROPERTY, hook, uzfs_get_name(fs));
             break;
         }
@@ -91,7 +91,7 @@ retry:
             debug("skipping '%s', not created by zint (property '%s' missing)", fullname, ZINT_VERSION_PROPERTY);
             break;
         }
-        if (!uzfs_fs_prop_get(fs, ZINT_HOOK_PROPERTY, hook, STR_SIZE(hook))) {
+        if (!uzfs_get_prop(fs, ZINT_HOOK_PROPERTY, hook, STR_SIZE(hook))) {
             debug("skipping '%s', not created by zint (property '%s' missing)", fullname, ZINT_HOOK_PROPERTY);
             break;
         }

@@ -44,20 +44,13 @@ typedef const char *(*uzfs_get_name_callback_t)(void *ptr);
 typedef void *(*uzfs_from_name_callback_t)(libzfs_handle_t *lh, const char *name, int types);
 typedef const char *(*uzfs_to_pool_name_callback_t)(void *ptr);
 typedef libzfs_handle_t *(*uzfs_to_libzfs_handle_callback_t)(void *ptr);
+typedef bool (*uzfs_get_prop_callback_t)(void *ptr, const char *name, char *value, size_t value_size);
 typedef int (*uzfs_set_prop_callback_t)(void *ptr, const char *name, const char *value);
 
-// <TODO>
 #if 0
-int zpool_get_prop(zpool_handle_t *, zpool_prop_t, char *, size_t, zprop_source_t *, boolean_t);
-int zfs_prop_get(zfs_handle_t *, zfs_prop_t, char *, size_t, zprop_source_t *, char *, size_t, boolean_t);
-
 uint64_t zpool_get_prop_int(zpool_handle_t *, zpool_prop_t, zprop_source_t *);
 int zfs_prop_get_numeric(zfs_handle_t *, zfs_prop_t, uint64_t *, zprop_source_t *, char *, size_t);
 #endif
-
-typedef bool (*uzfs_prop_get_callback_t)(void *ptr);
-typedef bool (*uzfs_prop_set_callback_t)(void *ptr, const char *, const char *);
-// </TODO>
 
 typedef struct {
     zfs_type_t type;
@@ -66,6 +59,7 @@ typedef struct {
     uzfs_from_name_callback_t from_name;
     uzfs_to_pool_name_callback_t to_pool_name;
     uzfs_to_libzfs_handle_callback_t to_libzfs_handle;
+    uzfs_get_prop_callback_t get_prop;
     uzfs_set_prop_callback_t set_prop;
 } zfs_klass_t;
 
@@ -147,6 +141,79 @@ static void *uzfs_zpool_from_name(libzfs_handle_t *lh, const char *name, int UNU
     return zpool_open_canfail(lh, name);
 }
 
+static bool uzfs_zpool_get_prop(void *ptr, const char *name, char *value, size_t value_size)
+{
+    bool ok;
+
+    assert(NULL != ptr);
+    assert(NULL != name);
+    assert(NULL != value);
+
+    ok = false;
+    do {
+        int prop;
+        zpool_handle_t *zh;
+
+        zh = (zpool_handle_t *) ptr;
+        if (ZPROP_INVAL == (prop = zprop_name_to_prop(name, ZFS_TYPE_POOL))) {
+            //set_generic_error(error, "property '%s' is not valid", name);
+            break;
+        }
+        if (0 != zpool_get_prop(zh, prop, value, value_size, NULL, B_TRUE)) {
+            break;
+        }
+        ok = true;
+    } while (false);
+
+    return ok;
+}
+
+static bool uzfs_dataset_get_prop(void *ptr, const char *name, char *value, size_t value_size)
+{
+    bool ok;
+
+    assert(NULL != ptr);
+    assert(NULL != name);
+    assert(NULL != value);
+
+    ok = false;
+    do {
+        zfs_handle_t *fh;
+
+        fh = (zfs_handle_t *) ptr;
+        if (NULL != strchr(name, ':')) {
+            char *v;
+            nvlist_t *props, *propval;
+
+            if (NULL == (props = zfs_get_user_props(fh))) {
+                break;
+            }
+            if (0 != nvlist_lookup_nvlist(props, name, &propval)) {
+                break;
+            }
+            if (0 != nvlist_lookup_string(propval, ZPROP_VALUE, &v)) {
+                break;
+            }
+            if (strlcpy(value, v, value_size) >= value_size) {
+                break;
+            }
+        } else {
+            int prop;
+
+            if (ZPROP_INVAL == (prop = zprop_name_to_prop(name, zfs_get_type(fh)))) {
+                //set_generic_error(error, "property '%s' is not valid", name);
+                break;
+            }
+            if (0 != zfs_prop_get(fh, prop, value, value_size, NULL, NULL, 0, B_TRUE)) {
+                break;
+            }
+        }
+        ok = true;
+    } while (false);
+
+    return ok;
+}
+
 #if 0
 typedef enum {
 	ZFS_TYPE_FILESYSTEM	= (1 << 0),
@@ -157,7 +224,7 @@ typedef enum {
 } zfs_type_t;
 #endif
 
-#define K(type, close, get_name, from_name, to_pool_name, to_libzfs_handle, set_prop) \
+#define K(type, close, get_name, from_name, to_pool_name, to_libzfs_handle, get_prop, set_prop) \
     { \
         type, \
         (uzfs_close_callback_t) close, \
@@ -165,12 +232,13 @@ typedef enum {
         (uzfs_from_name_callback_t) from_name, \
         (uzfs_to_pool_name_callback_t) to_pool_name, \
         (uzfs_to_libzfs_handle_callback_t) to_libzfs_handle, \
+        (uzfs_get_prop_callback_t) get_prop, \
         (uzfs_set_prop_callback_t) set_prop, \
     }
 
-static const zfs_klass_t zpool_klass = K(ZFS_TYPE_POOL, zpool_close, zpool_get_name, uzfs_zpool_from_name, zpool_get_name, zpool_get_handle, zpool_set_prop);
-static const zfs_klass_t filesystem_klass = K(ZFS_TYPE_FILESYSTEM, zfs_close, zfs_get_name, zfs_open, zfs_get_pool_name, zfs_get_handle, zfs_prop_set);
-static const zfs_klass_t snapshot_klass = K(ZFS_TYPE_SNAPSHOT, zfs_close, zfs_get_name, zfs_open, zfs_get_pool_name, zfs_get_handle, zfs_prop_set);
+static const zfs_klass_t zpool_klass = K(ZFS_TYPE_POOL, zpool_close, zpool_get_name, uzfs_zpool_from_name, zpool_get_name, zpool_get_handle, uzfs_zpool_get_prop, zpool_set_prop);
+static const zfs_klass_t filesystem_klass = K(ZFS_TYPE_FILESYSTEM, zfs_close, zfs_get_name, zfs_open, zfs_get_pool_name, zfs_get_handle, uzfs_dataset_get_prop, zfs_prop_set);
+static const zfs_klass_t snapshot_klass = K(ZFS_TYPE_SNAPSHOT, zfs_close, zfs_get_name, zfs_open, zfs_get_pool_name, zfs_get_handle, uzfs_dataset_get_prop, zfs_prop_set);
 
 #undef K
 
@@ -279,7 +347,16 @@ uzfs_type_t uzfs_get_type(uzfs_ptr_t *h)
     return (uzfs_type_t) (h->klass - *klasses);
 }
 
-bool uzfs_prop_set(uzfs_ptr_t *h, const char *name, const char *value, char **error)
+bool uzfs_get_prop(uzfs_ptr_t *h, const char *name, char *value, size_t value_size)
+{
+    assert_valid_uzfs_ptr_t(h);
+    assert(NULL != name);
+    assert(NULL != value);
+
+    return h->klass->get_prop(h->ptr, name, value, value_size);
+}
+
+bool uzfs_set_prop(uzfs_ptr_t *h, const char *name, const char *value, char **error)
 {
     int ret;
 
@@ -294,7 +371,7 @@ bool uzfs_prop_set(uzfs_ptr_t *h, const char *name, const char *value, char **er
     return -1 != ret;
 }
 
-bool uzfs_prop_set_numeric(uzfs_ptr_t *h, const char *name, uint64_t value, char **error)
+bool uzfs_set_prop_numeric(uzfs_ptr_t *h, const char *name, uint64_t value, char **error)
 {
     int ret;
     char buffer[128];
@@ -305,7 +382,7 @@ bool uzfs_prop_set_numeric(uzfs_ptr_t *h, const char *name, uint64_t value, char
     ret = snprintf(buffer, STR_SIZE(buffer), "%" PRIu64, value);
     assert(ret > 0 && ((size_t) ret) <= STR_SIZE(buffer));
 
-    return uzfs_prop_set(h, name, buffer, error);
+    return uzfs_set_prop(h, name, buffer, error);
 }
 
 /**
@@ -509,53 +586,6 @@ bool uzfs_rollback(uzfs_ptr_t *fs, uzfs_ptr_t *snapshot, bool force, char **erro
         if (0 != zfs_rollback(fs->fh, snapshot->fh, force)) {
             set_zfs_error(error, to_libzfs_handle(fs), "failed to rollback '%s' to '%s'", zfs_get_name(fs->fh), zfs_get_name(snapshot->fh));
             break;
-        }
-        ok = true;
-    } while (false);
-
-    return ok;
-}
-
-bool uzfs_fs_prop_get(uzfs_ptr_t *fs, const char *name, char *value, size_t value_size)
-{
-    bool ok;
-
-    assert_uzfs_ptr_t_is(fs, ZFS_TYPE_FILESYSTEM | ZFS_TYPE_SNAPSHOT);
-    assert(NULL != name);
-    assert(NULL != value);
-
-    ok = false;
-    do {
-        if (NULL != strchr(name, ':')) {
-            char *v;
-            nvlist_t *props, *propval;
-
-            if (NULL == (props = zfs_get_user_props(fs->fh))) {
-                break;
-            }
-            if (0 != nvlist_lookup_nvlist(props, name, &propval)) {
-                break;
-            }
-            if (0 != nvlist_lookup_string(propval, ZPROP_VALUE, &v)) {
-                break;
-            }
-            // <partie qui change>
-            if (strlcpy(value, v, value_size) >= value_size) {
-                break;
-            }
-            // </partie qui change>
-        } else {
-            int prop;
-
-            if (ZPROP_INVAL == (prop = zprop_name_to_prop(name, fs->klass->type))) {
-                //set_generic_error(error, "property '%s' is not valid", name);
-                break;
-            }
-            // <partie qui change>
-            if (0 != zfs_prop_get(fs->fh, prop, value, value_size, NULL, NULL, 0, B_TRUE)) {
-                break;
-            }
-            // </partie qui change>
         }
         ok = true;
     } while (false);
