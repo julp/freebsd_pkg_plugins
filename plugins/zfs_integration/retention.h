@@ -6,4 +6,6 @@
 
 #define CFG_RETENTION "RETENTION"
 
-char *retention_parse(const pkg_object *, uint64_t *, char **);
+typedef struct retention_t retention_t;
+
+const retention_t *retention_parse(const pkg_object *, uint64_t *, char **);

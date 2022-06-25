@@ -255,8 +255,8 @@ int pkg_plugin_init(struct pkg_plugin *p)
 
     do {
         uint64_t limit;
-        char *retention;
         pkg_object_t object_type;
+        const retention_t *retention;
         const pkg_object *config, *object;
 
         status = EPKG_FATAL;

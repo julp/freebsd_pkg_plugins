@@ -345,11 +345,36 @@ static bool raw_zfs_snapshot(paths_to_check_t *ptc, const char *snapshot, const 
     return ok;
 }
 
-static bool raw_zfs_rollback(paths_to_check_t *UNUSED(ptc), void *UNUSED(data), bool UNUSED(dry_run), bool UNUSED(temporary), char **error)
+static bool raw_zfs_rollback(paths_to_check_t *ptc, void *UNUSED(data), bool dry_run, bool UNUSED(temporary), char **error)
 {
-    set_generic_error(error, "sorry, this functionnality is not (yet) implemented for raw ZFS");
+    bool ok;
+    selection_t *snapshots;
 
-    return false;
+    ok = false;
+    dry_run = true; // TODO: forced for testing
+    do {
+        snapshot_t *last;
+
+        // TODO: handle recursivity/others subfilesystems
+        // TODO: a rollback can't be done on an active (booted) filesystem
+        if (NULL == (snapshots = fetch_sorted_zint_snapshot(ptc->root.fs, (CmpFunc) compare_snapshot_by_creation_date_desc, error))) {
+            break;
+        }
+        if (!selection_at(snapshots, 0, (void **) &last)) {
+            set_generic_error(error, "no identified snapshot to rollback to");
+            break;
+        }
+//         if (!dry_run && uzfs_rollback(ptc->root.fs, last->fs, bool force, error)) {
+//             break;
+//         }
+        fprintf(stderr, "system %s rollbacked on snapshot '%s'\n", dry_run ? "would be" : "was", last->name);
+        ok = true;
+    } while (false);
+    if (NULL != snapshots) {
+        selection_destroy(snapshots);
+    }
+
+    return ok;
 }
 
 static void raw_zfs_fini(void *data)

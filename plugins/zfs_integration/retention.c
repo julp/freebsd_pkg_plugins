@@ -40,13 +40,15 @@ static bool retention_by_creation_keep(uint64_t value, uint64_t limit, uint64_t 
     return value >= limit;
 }
 
-struct {
+struct retention_t {
     const char *name;
     bool (*callback)(uint64_t, uint64_t, uint64_t *);
-} static const kinds[] = {
+};
+
+static const retention_t kinds[] = {
     [ R(DISABLED) ] = {"disabled: no deletion", retention_disabled_keep},
     [ R(BY_COUNT) ] = {"by count: keep the N most recent snapshots", retention_by_count_keep},
-    //[ R(BY_SIZE) ] = {"", },
+    //[ R(BY_SIZE) ] = {"by size: keep the most recent snapshots while their cumulated size doesn't exceed N", retention_by_size_keep},
     [ R(BY_CREATION) ] = {"by creation: keep the snapshots over the last N period", retention_by_creation_keep},
 };
 
@@ -72,13 +74,13 @@ static const struct {
     { S("year"), YEAR },
 };
 
-char *retention_parse(const pkg_object *object, uint64_t *limit, char **error)
+const retention_t *retention_parse(const pkg_object *object, uint64_t *limit, char **error)
 {
-    char *ret, *retention;
+    const retention_t *retention;
 
     assert(NULL != limit);
 
-    ret = retention = NULL;
+    retention = NULL;
     do {
         pkg_object_t object_type;
         retention_type_t retention_type;
@@ -140,10 +142,17 @@ char *retention_parse(const pkg_object *object, uint64_t *limit, char **error)
             set_generic_error(error, "expected %s to be either false, null, an integer or a string, got: %s (%d)", CFG_RETENTION, pkg_object_string(object), object_type);
             break;
         }
-        ret = retention;
+        retention = &kinds[retention_type];
         debug("retention : type = %d, limit = %" PRIu64, retention_type, *limit);
     } while (false);
 
-//     return ret;
-    return "TODO";
+    return retention;
+}
+
+bool retention_apply(const retention_t *retention, uint64_t limit, selection_t *selection)
+{
+    uint64_t state;
+
+    state = 0;
+    selection_apply(selection, retention->callback, state, limit);
 }
