@@ -79,6 +79,7 @@ set(ZINT_SOURCES
     none_method.c
     $<TARGET_OBJECTS:zfs>
     ${PROJECT_SOURCE_DIR}/shared/os.c
+    ${PROJECT_SOURCE_DIR}/shared/compat.c
     ${PROJECT_SOURCE_DIR}/shared/path_join.c
     ${PROJECT_SOURCE_DIR}/kissc/stpcpy_sp.c
 )

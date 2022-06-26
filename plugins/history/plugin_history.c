@@ -5,6 +5,7 @@
 #include <pkg.h>
 
 #include "common.h"
+#include "shared/compat.h"
 #include "error/error.h"
 #include "sqlite/sqlite.h"
 #include "shared/os.h"
@@ -369,12 +370,12 @@ static int pkg_history_main(int argc, char **argv)
     int ch;
     char *error;
     sqlite_db_t *db;
-    pkg_error_t status;
+    //pkg_error_t status;
     query_options_t qo;
 
     db = NULL;
     error = NULL;
-    status = EPKG_FATAL;
+    //status = EPKG_FATAL;
     query_options_init(&qo);
     while (-1 != (ch = getopt_long(argc, argv, optstr, long_options, NULL))) {
         switch (ch) {
@@ -455,7 +456,7 @@ static int pkg_history_main(int argc, char **argv)
             }
 #endif
         }
-        status = EPKG_OK;
+        //status = EPKG_OK;
     } while (false);
     if (NULL != db) {
         sqlite_close(db);
@@ -514,15 +515,13 @@ static int handle_hooks(void *data, struct pkgdb *UNUSED(_db))
         statement_fetch(db, &statements[STMT_CREATE_COMMAND], &error);
         command_id = sqlite_last_insert_id(db);
         while (pkg_jobs_iter(jobs, &iter, &new_pkg, &old_pkg, &solved_type)) {
-            char *name, *origin, *new_version, *old_version, *repo;
+            const char *name, *origin, *new_version, *old_version, *repo;
 
-            pkg_get(new_pkg,
-                PKG_NAME, &name,
-                PKG_ORIGIN, &origin,
-                PKG_VERSION, &new_version,
-                PKG_OLD_VERSION, &old_version,
-                PKG_REPONAME, &repo
-            );
+            pkg_get_string(new_pkg, PKG_NAME, name);
+            pkg_get_string(new_pkg, PKG_ORIGIN, origin);
+            pkg_get_string(new_pkg, PKG_VERSION, new_version);
+            pkg_get_string(new_pkg, PKG_OLD_VERSION, old_version);
+            pkg_get_string(new_pkg, PKG_REPONAME, repo);
             switch (job_type) { // TODO: plutôt considérer solved_type ?
                 case PKG_JOBS_INSTALL:
                     operation = PKG_OP_INSTALL;

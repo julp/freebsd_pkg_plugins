@@ -186,10 +186,8 @@ static bool be_rollback(paths_to_check_t *ptc, void *data, bool temporary, char 
         for (cur = nvlist_next_nvpair(props, NULL); NULL != cur; cur = nvlist_next_nvpair(props, cur)) {
             uzfs_fs_t *fs;
             const char *name;
-            nvlist_t *dsprops;
             uint64_t version, creation;
 
-            dsprops = NULL;
             name = extract_name_from_be(cur);
             if (!extract_creation_from_be(cur, &creation)) {
                 continue;

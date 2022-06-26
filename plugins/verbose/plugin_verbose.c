@@ -1,6 +1,7 @@
 #include <pkg.h>
 
 #include "common.h"
+#include "shared/compat.h"
 #include "error.h"
 
 static struct pkg_plugin *self;
@@ -52,16 +53,14 @@ static int handle_hooks(void *data, struct pkgdb *UNUSED(pkg_db))
         job_type = pkg_jobs_type(jobs);
         while (pkg_jobs_iter(jobs, &iter, &new_pkg, &old_pkg, &solved_type)) {
             int change_type;
-            char *pkg_name, *origin, *version, *old_version, *repo;
+            const char *pkg_name, *origin, *version, *old_version, *repo;
 
             change_type = ARRAY_SIZE(change_names) - 2;
-            pkg_get(new_pkg,
-                PKG_NAME, &pkg_name,
-                PKG_ORIGIN, &origin,
-                PKG_VERSION, &version,
-                PKG_OLD_VERSION, &old_version,
-                PKG_REPONAME, &repo
-            );
+            pkg_get_string(new_pkg, PKG_NAME, pkg_name);
+            pkg_get_string(new_pkg, PKG_ORIGIN, origin);
+            pkg_get_string(new_pkg, PKG_VERSION, version);
+            pkg_get_string(new_pkg, PKG_OLD_VERSION, old_version);
+            pkg_get_string(new_pkg, PKG_REPONAME, repo);
             if (NULL != old_pkg) {
                 change_type = pkg_version_change_between(new_pkg, old_pkg);
             }

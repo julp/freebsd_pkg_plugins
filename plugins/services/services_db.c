@@ -504,10 +504,7 @@ static bool pkg_from_rc_d_script(struct pkgdb *pkg_db, services_db_t *db, rc_d_s
             char *shlib_name;
 
             shlib_name = NULL;
-            pkg_get(pkg,
-                PKG_NAME, &pkg_name
-//                 PKG_ORIGIN, &origin
-            );
+            pkg_get_string(pkg, PKG_NAME, pkg_name);
             if (NULL == (script_package = package_retrieve(db, pkg_name, error))) {
                 break;
             }
@@ -526,7 +523,7 @@ static bool pkg_from_rc_d_script(struct pkgdb *pkg_db, services_db_t *db, rc_d_s
                     while (EPKG_OK == pkgdb_it_next(it, &shlib_pkg, PKG_LOAD_BASIC)) {
                         package_t *shlib_package;
 
-                        pkg_get(shlib_pkg, PKG_NAME, &name);
+                        pkg_get_string(shlib_pkg, PKG_NAME, name);
                         assert(NULL != name);
                         shlib_package = package_retrieve(db, name, error);
                         assert(NULL != shlib_package);
@@ -587,11 +584,9 @@ static bool scan_rc_d_directory(struct pkgdb *pkg_db, services_db_t *db, const c
 
         while (NULL != (dp = readdir(dirp))) {
             struct stat sb;
-            const char *pkg_name;
             rc_d_script_t *script;
             char rc_d_script_path[MAXPATHLEN];
 
-            pkg_name = NULL;
             if (0 == strcmp(".", dp->d_name) || 0 == strcmp("..", dp->d_name)) {
                 continue;
             }

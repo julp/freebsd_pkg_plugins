@@ -4,6 +4,7 @@
 #include <pkg.h>
 
 #include "common.h"
+#include "shared/compat.h"
 #include "error.h"
 #include "shared/os.h"
 #include "backup_method.h"

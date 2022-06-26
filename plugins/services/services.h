@@ -4,6 +4,7 @@
 #include <stdarg.h>
 #include <pkg.h>
 
+#include "shared/compat.h"
 #include "iterator.h"
 
 /* <services_db.c> */
