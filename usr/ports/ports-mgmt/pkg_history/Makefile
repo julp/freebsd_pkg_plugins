@@ -17,7 +17,7 @@ CMAKE_ARGS=	-DPLUGINS:STRING=history
 USE_GITHUB=	yes
 GH_ACCOUNT=	julp
 GH_PROJECT=	freebsd_pkg_plugins
-GH_TAGNAME=	9599eb6
+GH_TAGNAME=	618fa7b
 
 PLIST_FILES=	lib/pkg/history.so
 
