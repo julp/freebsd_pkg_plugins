@@ -69,6 +69,11 @@ macro(pkg_plugin)
     if(HAVE_PKG_OBJECT_FIND)
         list(APPEND PKG_PLUGIN_DEFINITIONS "HAVE_PKG_OBJECT_FIND=1")
     endif(HAVE_PKG_OBJECT_FIND)
+
+    check_library_exists("${pkg_LIBRARY}" "pkg_shlibs_required" "" HAVE_PKG_SHLIBS_REQUIRED)
+    if(HAVE_PKG_SHLIBS_REQUIRED)
+        list(APPEND PKG_PLUGIN_DEFINITIONS "HAVE_PKG_SHLIBS_REQUIRED=1")
+    endif(HAVE_PKG_SHLIBS_REQUIRED)
     # </pkg 1.18>
 
     set(PKG_PLUGIN_INCLUDE_DIRS )

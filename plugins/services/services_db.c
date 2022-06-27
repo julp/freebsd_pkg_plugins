@@ -501,7 +501,15 @@ static bool pkg_from_rc_d_script(struct pkgdb *pkg_db, services_db_t *db, rc_d_s
             break;
         }
         if (EPKG_OK == pkgdb_it_next(it, &pkg, PKG_LOAD_FILES | PKG_LOAD_SHLIBS_REQUIRED)) {
+#ifdef HAVE_PKG_SHLIBS_REQUIRED
+            /* pkg < 1.18 */
             char *shlib_name;
+#else
+            /* pkg >= 1.18 */
+            const char *shlib_name;
+            struct pkg_stringlist *sl;
+            struct pkg_stringlist_iterator *slit;
+#endif /* pkg_shlibs_required */
 
             shlib_name = NULL;
             pkg_get_string(pkg, PKG_NAME, pkg_name);
@@ -512,7 +520,15 @@ static bool pkg_from_rc_d_script(struct pkgdb *pkg_db, services_db_t *db, rc_d_s
                 break;
             }
             // IMPORTANT NOTE: from this point do NOT use pkg_name (will not be valid - freed - later), use script->package->name or script_package->name instead
+#ifdef HAVE_PKG_SHLIBS_REQUIRED
+            /* pkg < 1.18 */
             while (EPKG_OK == pkg_shlibs_required(pkg, &shlib_name)) {
+#else
+            /* pkg >= 1.18 */
+            pkg_get_stringlist(pkg, PKG_SHLIBS_REQUIRED, sl); // WTF?!? pkg_attr vs pkg_list (enum): how PKG_SHLIBS_REQUIRED doesn't conflict with PKG_MESSAGE?!?
+            slit = pkg_stringlist_iterator(sl);
+            while (NULL != (shlib_name = pkg_stringlist_next(slit))) {
+#endif /* pkg_shlibs_required */
                 const char *name;
                 struct pkgdb_it *it;
 
@@ -532,6 +548,10 @@ static bool pkg_from_rc_d_script(struct pkgdb *pkg_db, services_db_t *db, rc_d_s
                     pkgdb_it_free(it);
                 }
             }
+#ifndef HAVE_PKG_SHLIBS_REQUIRED
+            free(slit);
+            free(sl);
+#endif /* !pkg_shlibs_required */
             pkg_free(pkg);
         }
         if (NULL != it) {
