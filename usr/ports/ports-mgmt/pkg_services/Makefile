@@ -14,7 +14,7 @@ CMAKE_ARGS=	-DPLUGINS:STRING=services
 USE_GITHUB=	yes
 GH_ACCOUNT=	julp
 GH_PROJECT=	freebsd_pkg_plugins
-GH_TAGNAME=	618fa7b
+GH_TAGNAME=	8f721f7
 
 PLIST_FILES=	lib/pkg/services.so
 
