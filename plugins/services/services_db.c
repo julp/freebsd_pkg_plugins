@@ -549,6 +549,7 @@ static bool pkg_from_rc_d_script(struct pkgdb *pkg_db, services_db_t *db, rc_d_s
                 }
             }
 #ifndef HAVE_PKG_SHLIBS_REQUIRED
+            /* pkg >= 1.18 */
             free(slit);
             free(sl);
 #endif /* !pkg_shlibs_required */
