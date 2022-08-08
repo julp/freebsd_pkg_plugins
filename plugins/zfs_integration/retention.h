@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <pkg.h>
 
+#include "selection.h"
+
 #define CFG_RETENTION "RETENTION"
 
 typedef struct retention_t retention_t;

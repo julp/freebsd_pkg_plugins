@@ -5,6 +5,7 @@
 
 #include "common.h"
 #include "error.h"
+#include "shared/compat.h"
 #include "shared/os.h"
 #include "backup_method.h"
 #include "retention.h"

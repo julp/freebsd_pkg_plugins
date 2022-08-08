@@ -6,6 +6,7 @@
 #include "shared/os.h"
 #include "kissc/hashtable.h"
 #include "services.h"
+#include "shared/compat.h"
 #include "rcorder.h"
 #include "kissc/stpcpy_sp.h"
 
@@ -339,11 +340,9 @@ static int handle_hooks(void *data, struct pkgdb *pkg_db)
             break;
         }
         while (pkg_jobs_iter(jobs, &iter, &new_pkg, &old_pkg, &solved_type)) {
-            char *pkg_name;
+            const char *pkg_name;
 
-            pkg_get(new_pkg,
-                PKG_NAME, &pkg_name
-            );
+            pkg_get_string(new_pkg, PKG_NAME, pkg_name);
             if (PKG_SOLVED_DELETE == solved_type) {
                 services_db_add_services_from_package_to_services_selection(services_db, ss, pkg_name, SERVICE_ACTION_STOP, false);
             }

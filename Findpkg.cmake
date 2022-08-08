@@ -63,6 +63,19 @@ macro(pkg_plugin)
         list(APPEND PKG_PLUGIN_DEFINITIONS "${UPPER_CASED_PKG_PLUGIN_NAME}_VERSION_STRING=\"${${UPPER_CASED_PKG_PLUGIN_NAME}_VERSION_STRING}\"")
     endif(PKG_PLUGIN_VERSION)
 
+    # <pkg 1.18>
+    include(CheckLibraryExists)
+    check_library_exists("${pkg_LIBRARY}" "pkg_object_find" "" HAVE_PKG_OBJECT_FIND)
+    if(HAVE_PKG_OBJECT_FIND)
+        list(APPEND PKG_PLUGIN_DEFINITIONS "HAVE_PKG_OBJECT_FIND=1")
+    endif(HAVE_PKG_OBJECT_FIND)
+
+    check_library_exists("${pkg_LIBRARY}" "pkg_shlibs_required" "" HAVE_PKG_SHLIBS_REQUIRED)
+    if(HAVE_PKG_SHLIBS_REQUIRED)
+        list(APPEND PKG_PLUGIN_DEFINITIONS "HAVE_PKG_SHLIBS_REQUIRED=1")
+    endif(HAVE_PKG_SHLIBS_REQUIRED)
+    # </pkg 1.18>
+
     set(PKG_PLUGIN_INCLUDE_DIRS )
     list(APPEND PKG_PLUGIN_INCLUDE_DIRS ${PROJECT_SOURCE_DIR})
     list(APPEND PKG_PLUGIN_INCLUDE_DIRS ${PROJECT_BINARY_DIR})

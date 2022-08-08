@@ -52,12 +52,23 @@ static const retention_t kinds[] = {
     [ R(BY_CREATION) ] = {"by creation: keep the snapshots over the last N period", retention_by_creation_keep},
 };
 
+#if 0
 #define MINUTE 60
 #define HOUR (60 * MINUTE)
 #define DAY (24 * HOUR)
 #define WEEK (7 * DAY)
 #define MONTH (30 * DAY)
 #define YEAR (365 * DAY)
+#else
+/*typedef*/ enum {
+    MINUTE = 60,
+    HOUR = 60 * MINUTE,
+    DAY = 24 * HOUR,
+    WEEK = 7 * DAY,
+    MONTH = 30 * DAY,
+    YEAR = 365 * DAY,
+};
+#endif
 
 static const struct {
     const char *name;
@@ -154,5 +165,7 @@ bool retention_apply(const retention_t *retention, uint64_t limit, selection_t *
     uint64_t state;
 
     state = 0;
-    selection_apply(selection, retention->callback, state, limit);
+    selection_apply(selection, retention->callback, &state, limit);
+
+    return false;
 }
