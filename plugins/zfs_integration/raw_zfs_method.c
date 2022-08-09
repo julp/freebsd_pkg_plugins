@@ -377,6 +377,33 @@ static bool raw_zfs_rollback(paths_to_check_t *ptc, void *UNUSED(data), bool dry
     return ok;
 }
 
+static bool raw_zfs_list(paths_to_check_t *UNUSED(ptc), void *UNUSED(data), char **UNUSED(error))
+{
+    return true;
+}
+
+static bool raw_zfs_rollback_to(const char *name, void *UNUSED(data), bool UNUSED(temporary), char **error)
+{
+    bool ok;
+
+    ok = false;
+    do {
+        // TODO: handle recursivity/others subfilesystems
+        // TODO: a rollback can't be done on an active (booted) filesystem
+//         if (uzfs_rollback(ptc->root.fs, name, bool force, error)) {
+//             break;
+//         }
+        ok = true;
+    } while (false);
+
+    return ok;
+}
+
+static bool raw_zfs_destroy_by_name(const char *UNUSED(name), void *UNUSED(data), bool UNUSED(recursive), char **UNUSED(error))
+{
+    return true;
+}
+
 static void raw_zfs_fini(void *data)
 {
     raw_zfs_context_t *ctxt;
@@ -393,4 +420,7 @@ const backup_method_t raw_zfs_method = {
     raw_zfs_fini,
     raw_zfs_snapshot,
     raw_zfs_rollback,
+    raw_zfs_list,
+    raw_zfs_rollback_to,
+    raw_zfs_destroy_by_name,
 };

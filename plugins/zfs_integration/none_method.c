@@ -26,6 +26,21 @@ static bool none_rollback(paths_to_check_t *UNUSED(ptc), void *UNUSED(data), boo
     return false;
 }
 
+static bool none_list(paths_to_check_t *UNUSED(ptc), void *UNUSED(data), char **UNUSED(error))
+{
+    return true;
+}
+
+static bool none_rollback_to(const char *UNUSED(name), void *UNUSED(data), bool UNUSED(temporary), char **UNUSED(error))
+{
+    return true;
+}
+
+static bool none_destroy_by_name(const char *UNUSED(name), void *UNUSED(data), bool UNUSED(recursive), char **UNUSED(error))
+{
+    return true;
+}
+
 static void none_fini(void *UNUSED(data))
 {
     /* NOP */
@@ -37,4 +52,7 @@ const backup_method_t none_method = {
     none_fini,
     none_take_snapshot,
     none_rollback,
+    none_list,
+    none_rollback_to,
+    none_destroy_by_name,
 };

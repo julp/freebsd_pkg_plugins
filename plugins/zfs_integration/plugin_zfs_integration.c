@@ -140,9 +140,34 @@ static int pkg_zint_main(int argc, char **argv)
             pkg_zint_usage();
             break;
         }
+#if 1
         if (!method->rollback(ptc, method_data, dry_run, temporary, &error)) {
             break;
         }
+#else
+        selection_t *versions;
+
+        // TODO: allouer/initialiser versions
+        // TODO: selection_t * en paramètre
+        if (!method->list(ptc, method_data, &error)) {
+            //
+        }
+        // TODO: last (type)
+        if (!selection_at(versions, 0, (void **) &last)) {
+            set_generic_error(error, "no identified previous version to rollback to");
+            break;
+        }
+        if (!dry_run) {
+            if (!method->rollback_to(last->name, method_data, temporary, &error)) {
+                break;
+            }
+        }
+        fprintf(stderr, "system %s rollbacked on '%s'\n", dry_run ? "would be" : "was", last->name);
+        // TODO: à déplacer après le } while (false) et la déclaration de versions avant le do
+        if (NULL != versions) {
+            selection_destroy(versions);
+        }
+#endif
         status = EPKG_OK;
     } while (false);
     if (/*EPKG_FATAL == status && */NULL != error) {

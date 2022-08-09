@@ -346,6 +346,35 @@ static bool be_rollback(paths_to_check_t *ptc, void *data, bool dry_run, bool te
     return ok;
 }
 
+static bool be_list(paths_to_check_t *UNUSED(ptc), void *UNUSED(data), char **UNUSED(error))
+{
+    return false;
+}
+
+static bool be_rollback_to(const char *name, void *data, bool temporary, char **error)
+{
+    bool ok;
+
+    ok = false;
+    do {
+        libbe_handle_t *lbh;
+
+        lbh = (libbe_handle_t *) data;
+        if (BE_ERR_SUCCESS != be_activate(lbh, name, temporary)) {
+            set_be_error(error, lbh, "failed to activate BE '%s'", name);
+            break;
+        }
+        ok = true;
+    } while (false);
+
+    return ok;
+}
+
+static bool be_destroy_by_name(const char *name, void *data, bool recursive, char **error)
+{
+    return false;
+}
+
 static void be_fini(void *data)
 {
     libbe_handle_t *lbh;
@@ -362,4 +391,7 @@ const backup_method_t be_method = {
     be_fini,
     be_take_snapshot,
     be_rollback,
+    be_list,
+    be_rollback_to,
+    be_destroy_by_name,
 };
