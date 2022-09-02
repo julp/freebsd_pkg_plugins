@@ -234,6 +234,9 @@ static bm_code_t raw_zfs_suitable(paths_to_check_t *ptc, void **data, char **err
     bm_code_t retval;
     raw_zfs_context_t *ctxt;
 
+    assert(NULL != ptc);
+    assert(NULL != data);
+
     ctxt = NULL;
     retval = BM_ERROR;
     do {
@@ -319,6 +322,9 @@ static bool raw_zfs_snapshot(paths_to_check_t *ptc, const char *snapshot, const 
     bool ok;
     raw_zfs_context_t *ctxt;
 
+    assert(NULL != ptc);
+    assert(NULL != snapshot);
+    assert(NULL != hook);
     assert(NULL != data);
 
     ok = false;
@@ -350,6 +356,8 @@ static bool raw_zfs_rollback(paths_to_check_t *ptc, void *UNUSED(data), bool dry
     bool ok;
     selection_t *snapshots;
 
+    assert(NULL != ptc);
+
     ok = false;
     dry_run = true; // TODO: forced for testing
     do {
@@ -379,12 +387,18 @@ static bool raw_zfs_rollback(paths_to_check_t *ptc, void *UNUSED(data), bool dry
 
 static bool raw_zfs_list(paths_to_check_t *UNUSED(ptc), void *UNUSED(data), char **UNUSED(error))
 {
+//     assert(NULL != ptc);
+//     assert(NULL != data);
+
     return true;
 }
 
 static bool raw_zfs_rollback_to(const char *name, void *UNUSED(data), bool UNUSED(temporary), char **error)
 {
     bool ok;
+
+    assert(NULL != name);
+//     assert(NULL != data);
 
     ok = false;
     do {
@@ -399,9 +413,33 @@ static bool raw_zfs_rollback_to(const char *name, void *UNUSED(data), bool UNUSE
     return ok;
 }
 
-static bool raw_zfs_destroy_by_name(const char *UNUSED(name), void *UNUSED(data), bool UNUSED(recursive), char **UNUSED(error))
+static bool raw_zfs_destroy_by_name(const char *name, void *UNUSED(data), bool UNUSED(recursive), char **error)
 {
-    return true;
+    bool ok;
+
+    assert(NULL != name);
+
+    ok = false;
+    do {
+        uzfs_ptr_t *snap;
+
+#if 0
+        // TODO: ptc n'est pas fourni
+        // TODO: recevoir directement un uzfs_ptr_t * plutôt que le nom pour s'épargner uzfs_from_name ? 
+        if (NULL == (snap = uzfs_from_name(ptc->lh, name, UZFS_TYPE_SNAPSHOT))) {
+            set_generic_error(error, "'%s' is not currently a ZFS snapshot", name);
+            break;
+        }
+#else
+        assert(false);
+#endif
+        if (!uzfs_filesystem_destroy(&snap, error)) {
+            break;
+        }
+        ok = true;
+    } while (false);
+
+    return ok;
 }
 
 static void raw_zfs_fini(void *data)

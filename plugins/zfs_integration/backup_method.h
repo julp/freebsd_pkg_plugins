@@ -23,7 +23,7 @@ typedef struct {
     bool (*rollback)(paths_to_check_t *ptc, void *data, bool dry_run, bool temporary, char **error);
     // <TEST>
     // compare ?
-    bool (*list)(paths_to_check_t *ptc, void *data, /*selection_t **/, char **error);
+    bool (*list)(paths_to_check_t *ptc, void *data, /*selection_t *, ?*/ char **error);
     bool (*rollback_to)(const char *name, void *data, bool temporary, char **error);
     bool (*destroy_by_name)(const char *name, void *data, bool recursive, char **error);
     // </TEST>

@@ -8,8 +8,7 @@
 # define ZFS_MAX_DATASET_NAME_LEN MAXPATHLEN
 #endif /* !ZFS_MAX_DATASET_NAME_LEN */
 
-// HACK: this constant is intended to provide a non-random and consistent buffer size for pool,
-// filesystem, snapshot, bookmark names to "consumers"
+// HACK: this constant is intended to provide a non-random and consistent buffer size for pool, filesystem, snapshot, bookmark names to "consumers"
 #define ZFS_MAX_NAME_LEN 256
 
 typedef enum {
@@ -38,6 +37,7 @@ bool uzfs_same_fs(uzfs_ptr_t *, uzfs_ptr_t *);
 bool uzfs_same_pool(uzfs_ptr_t *, uzfs_ptr_t *);
 uzfs_ptr_t *uzfs_fs_from_file(uzfs_lib_t *, const char *);
 
+bool uzfs_filesystem_destroy(uzfs_ptr_t **, char **);
 bool uzfs_rollback(uzfs_ptr_t *, uzfs_ptr_t *, bool, char **);
 bool uzfs_snapshot(uzfs_ptr_t *, const char *, bool, char *, size_t, bool, char **);
 bool uzfs_iter_snapshots(uzfs_ptr_t *, bool (*)(uzfs_ptr_t *, void *, char **), void *, char **);

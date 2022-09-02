@@ -147,7 +147,10 @@ static int pkg_zint_main(int argc, char **argv)
 #else
         selection_t *versions;
 
-        // TODO: allouer/initialiser versions
+        if (NULL == (versions = selection_new(cmp, (DtorFunc) destroy_be, (DupFunc) copy_be))) {
+            set_generic_error(error, "TODO");
+            break;
+        }
         // TODO: selection_t * en paramètre
         if (!method->list(ptc, method_data, &error)) {
             //

@@ -7,6 +7,8 @@
 
 static bm_code_t none_suitable(paths_to_check_t *UNUSED(ptc), void **data, char **UNUSED(error))
 {
+    assert(NULL != data);
+
     *data = NULL;
 
     return BM_OK;
