@@ -341,30 +341,39 @@ bool dlist_at(DList *list, int n, void **data)
 
 void dlist_sort(DList *list, CmpFunc cmp)
 {
-    bool swapped;
-    DListElement *cur, *tmp;
-
     assert(NULL != list);
     assert(NULL != cmp);
 
-    tmp = NULL;
-    do {
-        swapped = false;
-        cur = list->head;
-        while (cur->next != tmp) {
-            if (cmp(cur->data, cur->next->data) > 0) {
-                void *data;
+    if (NULL != list->head) {
+        bool swapped;
+        DListElement *cur, *tmp;
 
-                data = cur->data;
-                cur->data = cur->next->data;
-                cur->next->data = data;
-                swapped = true;
+        tmp = NULL;
+        do {
+            swapped = false;
+            cur = list->head;
+            while (cur->next != tmp) {
+                if (cmp(cur->data, cur->next->data) > 0) {
+                    void *data;
+
+                    data = cur->data;
+                    cur->data = cur->next->data;
+                    cur->next->data = data;
+                    swapped = true;
+                }
+                cur = cur->next;
             }
-            cur = cur->next;
-        }
-        tmp = cur;
-    } while (swapped);
+            tmp = cur;
+        } while (swapped);
+    }
 }
+
+/*
+void dlist_apply(DList *list, void (*x)(int))
+{
+    //
+}
+*/
 
 #ifndef WITHOUT_ITERATOR
 static void dlist_iterator_first(const void *collection, void **state)

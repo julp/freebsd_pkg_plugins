@@ -129,7 +129,7 @@ const retention_t *retention_parse(const pkg_object *object, uint64_t *limit, ch
                 *limit = value;
                 retention_type = value > 0 ? R(BY_COUNT) : R(DISABLED);
             } else if (value <= 0) {
-                set_generic_error(error, "expected quantified %s value to be > 0, got: %lld", CFG_RETENTION, value);
+                set_generic_error(error, "expected quantified '%s' value to be > 0, got: %lld", CFG_RETENTION, value);
                 break;
             } else /*if (value > 0)*/ {
                 char *p;
@@ -150,7 +150,7 @@ const retention_t *retention_parse(const pkg_object *object, uint64_t *limit, ch
                 }
             }
         } else {
-            set_generic_error(error, "expected %s to be either false, null, an integer or a string, got: %s (%d)", CFG_RETENTION, pkg_object_string(object), object_type);
+            set_generic_error(error, "expected '%s' to be either false, null, an integer or a string, got: '%s' (%d)", CFG_RETENTION, pkg_object_string(object), object_type);
             break;
         }
         retention = &kinds[retention_type];
@@ -160,6 +160,7 @@ const retention_t *retention_parse(const pkg_object *object, uint64_t *limit, ch
     return retention;
 }
 
+/*
 bool retention_apply(const retention_t *retention, uint64_t limit, selection_t *selection)
 {
     uint64_t state;
@@ -169,3 +170,4 @@ bool retention_apply(const retention_t *retention, uint64_t limit, selection_t *
 
     return false;
 }
+*/

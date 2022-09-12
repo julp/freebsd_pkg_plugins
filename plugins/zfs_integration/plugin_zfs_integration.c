@@ -104,7 +104,7 @@ static void pkg_zint_usage(void)
     fprintf(stderr, "usage: pkg %s [-%s] rollback\n", NAME, pkg_zint_optstr);
 }
 
-static bool purge_snapshots(char **error)
+static bool purge_snapshots(const retention_t *retention, char **error)
 {
     bool ok;
     DList l; // snapshots per filesystem
@@ -385,6 +385,7 @@ int pkg_plugin_init(struct pkg_plugin *p)
             break;
         }
         assert(NULL != method);
+        debug("DEBUG: using method '%s'", method->name);
     } while (false);
     if (EPKG_FATAL == status && NULL != error) {
         pkg_plugin_error(self, "%s", error);

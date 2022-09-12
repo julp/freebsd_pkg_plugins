@@ -272,19 +272,23 @@ static bool raw_zfs_list(paths_to_check_t *ptc, void *data, DList *l, char **err
     ok = false;
     do {
         size_t i;
-        DList *snapshots;
 
-        if (NULL == (snapshots = malloc(sizeof(*snapshots)))) {
-            set_malloc_error(error, sizeof(*snapshots));
-            break;
-        }
-        dlist_init(snapshots, /*snapshot_copy, */snapshot_destroy);
-        if (!dlist_append(l, snapshots)) {
-            set_generic_error(error, "dlist_append failed");
-            break;
-        }
         for (ok = true, i = 0; ok && i < _FS_COUNT; i++) {
             if (NULL != ptc->paths[i].fs) {
+                DList *snapshots;
+
+                // TODO: ignorer les FS situés au même endroit (les différents pointeurs ZFS n'étant pas recyclés - logique)
+                // passer par une HashTable associant uzfs_get_name en clé au (premier) pointeur uzfs_ptr_t se présentant pour éviter les doublons ?
+//                 debug("%s = %p", ptc->paths[i].path, ptc->paths[i].fs);
+                if (!(ok &= NULL != (snapshots = malloc(sizeof(*snapshots))))) {
+                    set_malloc_error(error, sizeof(*snapshots));
+                    break;
+                }
+                dlist_init(snapshots, /*snapshot_copy, */snapshot_destroy);
+                if (!(ok &= dlist_append(l, snapshots))) {
+                    set_generic_error(error, "dlist_append failed");
+                    break;
+                }
                 ok &= uzfs_iter_snapshots(ptc->paths[i].fs, snaphosts_iter_callback_build_array, snapshots, error);
             }
         }
