@@ -19,6 +19,8 @@
 
 void dlist_init(DList *list, DtorFunc dtor)
 {
+    assert(NULL != list);
+
     list->length = 0;
     list->head = list->tail = NULL;
     list->dtor = dtor;
@@ -35,6 +37,8 @@ void dlist_init(DList *list, DtorFunc dtor)
  */
 size_t dlist_length(DList *list)
 {
+    assert(NULL != list);
+
     return list->length;
 }
 
@@ -47,8 +51,10 @@ void dlist_clear(DList *list)
 {
     DListElement *tmp, *last;
 
+    assert(NULL != list);
+
     tmp = list->head;
-    while (tmp) {
+    while (NULL != tmp) {
         last = tmp;
         tmp = tmp->next;
         if (NULL != list->dtor) {
@@ -63,6 +69,8 @@ void dlist_clear(DList *list)
 bool dlist_append(DList *list, void *data)
 {
     DListElement *tmp;
+
+    assert(NULL != list);
 
     ALLOC_ELEMENT(tmp, data);
     tmp->next = NULL;
@@ -83,6 +91,9 @@ DListElement *dlist_find_first(DList *list, CmpFunc cmp, void *data)
 {
     DListElement *el;
 
+    assert(NULL != list);
+    assert(NULL != cmp);
+
     for (el = list->head; NULL != el; el = el->next) {
         if (0 == cmp(el->data, data)) {
             return el;
@@ -96,6 +107,9 @@ DListElement *dlist_find_last(DList *list, CmpFunc cmp, void *data)
 {
     DListElement *el;
 
+    assert(NULL != list);
+    assert(NULL != cmp);
+
     for (el = list->tail; NULL != el; el = el->prev) {
         if (0 == cmp(el->data, data)) {
             return el;
@@ -107,6 +121,9 @@ DListElement *dlist_find_last(DList *list, CmpFunc cmp, void *data)
 
 bool dlist_insert_before(DList *list, DListElement *sibling, void *data)
 {
+    assert(NULL != list);
+    assert(NULL != sibling);
+
     if (sibling == list->head) {
         return dlist_prepend(list, data);
     } else {
@@ -124,6 +141,9 @@ bool dlist_insert_before(DList *list, DListElement *sibling, void *data)
 
 bool dlist_insert_after(DList *list, DListElement *sibling, void *data)
 {
+    assert(NULL != list);
+    assert(NULL != sibling);
+
     if (sibling == list->tail) {
         return dlist_append(list, data);
     } else {
@@ -143,6 +163,8 @@ DListElement *dlist_link_at(DList *list, int n)
 {
     size_t offset;
     DListElement *el;
+
+    assert(NULL != list);
 
     if (n < 0) {
         n = -n;
@@ -165,6 +187,8 @@ bool dlist_insert_at(DList *list, int n, void *data)
 {
     DListElement *el;
 
+    assert(NULL != list);
+
     if (NULL == (el = dlist_link_at(list, n))) {
         return false;
     } else {
@@ -176,6 +200,8 @@ bool dlist_remove_at(DList *list, int n)
 {
     DListElement *el;
 
+    assert(NULL != list);
+
     if (NULL == (el = dlist_link_at(list, n))) {
         return false;
     } else {
@@ -186,12 +212,16 @@ bool dlist_remove_at(DList *list, int n)
 
 bool dlist_empty(DList *list)
 {
+    assert(NULL != list);
+
     return NULL == list->head;
 }
 
 bool dlist_prepend(DList *list, void *data)
 {
     DListElement *tmp;
+
+    assert(NULL != list);
 
     ALLOC_ELEMENT(tmp, data);
     tmp->prev = NULL;
@@ -211,6 +241,8 @@ void dlist_remove_head(DList *list)
 {
     DListElement *tmp;
 
+    assert(NULL != list);
+
     if (NULL != list->head) {
         tmp = list->head;
         list->head = list->head->next;
@@ -229,6 +261,9 @@ void dlist_remove_head(DList *list)
 
 void dlist_remove_link(DList *list, DListElement *element)
 {
+    assert(NULL != list);
+    assert(NULL != element);
+
     if (NULL != element->prev) {
         element->prev->next = element->next;
     }
@@ -255,6 +290,8 @@ void dlist_remove_tail(DList *list)
 {
     DListElement *tmp;
 
+    assert(NULL != list);
+
     if (list->tail) {
         tmp = list->tail;
         list->tail = list->tail->prev;
@@ -269,6 +306,64 @@ void dlist_remove_tail(DList *list)
         free(tmp);
         --list->length;
     }
+}
+
+static DListElement *resolve_position(DList *list, int n)
+{
+    int c;
+    DListElement *cur;
+
+    assert(NULL != list);
+
+    c = n < 0 ? -n : n;
+    cur = n < 0 ? list->tail : list->head;
+    while (NULL != cur && 0 != c) {
+        cur = n < 0 ? cur->prev : cur->next;
+        --c;
+    }
+
+    return (0 == c && NULL != cur) ? cur : NULL;
+}
+
+bool dlist_at(DList *list, int n, void **data)
+{
+    DListElement *cur;
+
+    assert(NULL != list);
+    assert(NULL != data);
+
+    if (NULL != (cur = resolve_position(list, n))) {
+        *data = cur->data;
+    }
+
+    return NULL != cur;
+}
+
+void dlist_sort(DList *list, CmpFunc cmp)
+{
+    bool swapped;
+    DListElement *cur, *tmp;
+
+    assert(NULL != list);
+    assert(NULL != cmp);
+
+    tmp = NULL;
+    do {
+        swapped = false;
+        cur = list->head;
+        while (cur->next != tmp) {
+            if (cmp(cur->data, cur->next->data) > 0) {
+                void *data;
+
+                data = cur->data;
+                cur->data = cur->next->data;
+                cur->next->data = data;
+                swapped = true;
+            }
+            cur = cur->next;
+        }
+        tmp = cur;
+    } while (swapped);
 }
 
 #ifndef WITHOUT_ITERATOR

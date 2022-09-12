@@ -76,14 +76,16 @@ set_target_properties(zfs PROPERTIES
 set(ZINT_SOURCES
     plugin_zfs_integration.c
     #utils.c
-    selection.c
     retention.c
+    snapshot.c
     none_method.c
     $<TARGET_OBJECTS:zfs>
     ${PROJECT_SOURCE_DIR}/shared/os.c
     ${PROJECT_SOURCE_DIR}/shared/compat.c
     ${PROJECT_SOURCE_DIR}/shared/path_join.c
     ${PROJECT_SOURCE_DIR}/kissc/stpcpy_sp.c
+    ${PROJECT_SOURCE_DIR}/kissc/dlist.c
+    ${PROJECT_SOURCE_DIR}/kissc/iterator.c
 )
 set(ZINT_LIBRARIES
     kvm

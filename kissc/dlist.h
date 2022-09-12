@@ -34,6 +34,9 @@ void dlist_remove_head(DList *);
 void dlist_remove_link(DList *, DListElement *);
 void dlist_remove_tail(DList *);
 
+bool dlist_at(DList *, int, void **);
+void dlist_sort(DList *, CmpFunc);
+
 #ifndef WITHOUT_ITERATOR
 # include "iterator.h"
 

@@ -21,24 +21,19 @@ static bool none_take_snapshot(paths_to_check_t *UNUSED(ptc), const char *UNUSED
     return true;
 }
 
-static bool none_rollback(paths_to_check_t *UNUSED(ptc), void *UNUSED(data), bool UNUSED(dry_run), bool UNUSED(temporary), char **error)
+static bool none_list(paths_to_check_t *UNUSED(ptc), void *UNUSED(data), DList *UNUSED(l), char **UNUSED(error))
+{
+    return true;
+}
+
+static bool none_rollback_to(const snapshot_t *UNUSED(snap), void *UNUSED(data), bool UNUSED(temporary), char **error)
 {
     set_generic_error(error, "a rollback is not possible on a non-ZFS system");
 
-    return false;
-}
-
-static bool none_list(paths_to_check_t *UNUSED(ptc), void *UNUSED(data), char **UNUSED(error))
-{
     return true;
 }
 
-static bool none_rollback_to(const char *UNUSED(name), void *UNUSED(data), bool UNUSED(temporary), char **UNUSED(error))
-{
-    return true;
-}
-
-static bool none_destroy_by_name(const char *UNUSED(name), void *UNUSED(data), bool UNUSED(recursive), char **UNUSED(error))
+static bool none_destroy(snapshot_t *UNUSED(snap), void *UNUSED(data), bool UNUSED(recursive), char **UNUSED(error))
 {
     return true;
 }
@@ -53,8 +48,7 @@ const backup_method_t none_method = {
     none_suitable,
     none_fini,
     none_take_snapshot,
-    none_rollback,
     none_list,
     none_rollback_to,
-    none_destroy_by_name,
+    none_destroy,
 };

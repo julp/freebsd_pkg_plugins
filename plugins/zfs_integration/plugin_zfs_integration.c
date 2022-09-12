@@ -18,7 +18,7 @@ extern const backup_method_t raw_zfs_method;
 
 const backup_method_t *available_methods[] = {
 #ifdef HAVE_BE
-    &be_method,
+//     &be_method,
 #endif /* HAVE_BE */
     &raw_zfs_method,
     &none_method,
@@ -31,6 +31,8 @@ static struct pkg_plugin *self;
 static const backup_method_t *method;
 
 static char DESCRIPTION[] = "ZFS/BE integration to provide recovery";
+
+const char *hook_to_name(int hook);
 
 static pkg_error_t find_backup_method(char **error)
 {
@@ -102,9 +104,36 @@ static void pkg_zint_usage(void)
     fprintf(stderr, "usage: pkg %s [-%s] rollback\n", NAME, pkg_zint_optstr);
 }
 
+static bool purge_snapshots(char **error)
+{
+    bool ok;
+    DList l; // snapshots per filesystem
+
+    ok = false;
+    dlist_init(&l, (DtorFunc) dlist_clear);
+    do {
+        DList *l2; // snapshots (on a given filesystem)
+        Iterator it;
+
+        if (!method->list(ptc, method_data, &l, error)) {
+            break;
+        }
+        dlist_to_iterator(&it, &l);
+        for (iterator_first(&it); iterator_is_valid(&it, NULL, &l2); iterator_next(&it)) {
+            // TODO: appliquer rétention (fonction de comparaison appropriée puis suppression de ceux qui ne sont pas à conserver)
+            dlist_sort(l2, snapshot_compare_by_creation_date_desc);
+        }
+        iterator_close(&it);
+    } while (false);
+    dlist_clear(&l);
+
+    return ok;
+}
+
 static int pkg_zint_main(int argc, char **argv)
 {
     int ch;
+    DList l;
     char *error;
     pkg_error_t status;
     bool dry_run, temporary, yes;
@@ -112,6 +141,7 @@ static int pkg_zint_main(int argc, char **argv)
     error = NULL;
     status = EPKG_FATAL;
     dry_run = temporary = yes = false;
+    dlist_init(&l, (DtorFunc) dlist_clear);
     while (-1 != (ch = getopt_long(argc, argv, pkg_zint_optstr, pkg_zint_long_options, NULL))) {
         switch (ch) {
             case 'n':
@@ -134,49 +164,56 @@ static int pkg_zint_main(int argc, char **argv)
     if (1 != argc || 0 != strcmp("rollback", argv[0])) {
         status = EX_USAGE;
     }
-
     do {
         if (EX_USAGE == status) {
             pkg_zint_usage();
             break;
         }
-#if 1
-        if (!method->rollback(ptc, method_data, dry_run, temporary, &error)) {
+        if (!method->list(ptc, method_data, &l, &error)) {
             break;
         }
-#else
-        selection_t *versions;
+        {
+            DList *l2;
+            Iterator it;
 
-        if (NULL == (versions = selection_new(cmp, (DtorFunc) destroy_be, (DupFunc) copy_be))) {
-            set_generic_error(error, "TODO");
-            break;
-        }
-        // TODO: selection_t * en paramètre
-        if (!method->list(ptc, method_data, &error)) {
-            //
-        }
-        // TODO: last (type)
-        if (!selection_at(versions, 0, (void **) &last)) {
-            set_generic_error(error, "no identified previous version to rollback to");
-            break;
-        }
-        if (!dry_run) {
-            if (!method->rollback_to(last->name, method_data, temporary, &error)) {
-                break;
-            }
-        }
-        fprintf(stderr, "system %s rollbacked on '%s'\n", dry_run ? "would be" : "was", last->name);
-        // TODO: à déplacer après le } while (false) et la déclaration de versions avant le do
-        if (NULL != versions) {
-            selection_destroy(versions);
-        }
+            dlist_to_iterator(&it, &l);
+            for (iterator_first(&it); iterator_is_valid(&it, NULL, &l2); iterator_next(&it)) {
+                Iterator it2;
+                snapshot_t *last, *snap;
+
+                last = NULL;
+                dlist_sort(l2, snapshot_compare_by_creation_date_desc);
+#if 1
+                dlist_to_iterator(&it2, l2);
+                for (iterator_first(&it2); iterator_is_valid(&it2, NULL, &snap); iterator_next(&it2)) {
+                    debug("%s was created by zint version %" PRIu64 " for '%s' (%d)", snap->name, snap->version, hook_to_name(snap->hook), snap->hook);
+                }
+                iterator_close(&it2);
 #endif
+                if (!dlist_at(l2, 0, (void **) &last)) {
+                    set_generic_error(&error, "no identified previous version to rollback to");
+                    break;
+                }
+                if (!dry_run) {
+#if 0
+                    if (!method->rollback_to(last->name, method_data, temporary, &error)) {
+                        break;
+                    }
+#else
+                    debug("rollback disabled (testing/safety)");
+#endif
+                }
+                fprintf(stderr, "system %s rollbacked on '%s' (from '%s')\n", dry_run ? "would be" : "was", last->name, hook_to_name(last->hook));
+            }
+            iterator_close(&it);
+        }
         status = EPKG_OK;
     } while (false);
     if (/*EPKG_FATAL == status && */NULL != error) {
         pkg_plugin_error(self, "%s", error);
         error_free(&error);
     }
+    dlist_clear(&l);
 
     return status;
 }
@@ -205,6 +242,11 @@ int name_to_hook(const char *name)
     }
 
     return hook;
+}
+
+const char *hook_to_name(int hook)
+{
+    return hooks[hook];
 }
 
 static int real_handle_hooks(pkg_plugin_hook_t hook, const char *scheme, void *data)

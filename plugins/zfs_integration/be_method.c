@@ -7,7 +7,8 @@
 #include "kissc/stpcpy_sp.h"
 #include "shared/path_join.h"
 #include "backup_method.h"
-#include "selection.h"
+
+#define BE_PROPERTY_CREATION "creation"
 
 #ifdef DEBUG
 # define set_be_error(error, lbh, format, ...) \
@@ -18,7 +19,7 @@
 #endif /* DEBUG */
 
 // <defined by raw_zfs_method.c>
-extern bool has_zfs_properties(uzfs_ptr_t *);
+extern bool has_zfs_properties(uzfs_ptr_t *, int *, uint64_t *);
 extern bool set_zfs_properties(uzfs_ptr_t *, const char *, char **);
 // </defined by raw_zfs_method.c>
 
@@ -29,10 +30,9 @@ static const char *extract_name_from_be(nvpair_t *be)
     return nvpair_name(be); // <=> nvlist_lookup_string(cur, "name", &name);
 }
 
-static bool extract_creation_from_be(nvpair_t *be, uint64_t *creation)
+static bool be_get_prop_numeric(nvpair_t *be, const char *property, uint64_t *creation, char **error)
 {
     bool ok;
-    char property[] = "creation";
 
     assert(NULL != be);
     assert(NULL != creation);
@@ -47,13 +47,13 @@ static bool extract_creation_from_be(nvpair_t *be, uint64_t *creation)
         dsprops = NULL;
         nvpair_value_nvlist(be, &dsprops);
         if (0 != nvlist_lookup_string(dsprops, property, &v)) {
-            debug("skipping BE '%s', couldn't retrieve property '%s'", extract_name_from_be(be), property); // TODO
+            set_generic_error(error, "couldn't retrieve property '%s' for BE '%s'", property, extract_name_from_be(be));
             break;
         }
         errno = 0;
         value = strtoull(v, &endptr, 10);
         if ('\0' != *endptr || (errno == ERANGE && value == ULLONG_MAX)) {
-            debug("skipping BE '%s', value of property '%s' couldn't be properly parsed", extract_name_from_be(be), property); // TODO
+            set_generic_error(error, "value '%s' of property '%s' couldn't be properly parsed for BE '%s'", v, property, extract_name_from_be(be));
             break;
         }
         *creation = (uint64_t) value;
@@ -83,149 +83,8 @@ static uzfs_ptr_t *be_to_fs(paths_to_check_t *ptc, libbe_handle_t *lbh, const ch
     return fs;
 }
 
-typedef struct {
-    char name[BE_MAXPATHLEN];
-    uint64_t creation;
-//     uzfs_ptr_t *fs;
-} be_t;
-
-static int compare_be_by_creation_date_desc(be_t *a, be_t *b)
-{
-    assert(NULL != a);
-    assert(NULL != b);
-
-    return (b->creation >= a->creation ? b->creation - a->creation : -1);
-}
-
-#if 0
-static int compare_be_by_creation_date_asc(be_t *a, be_t *b)
-{
-    assert(NULL != a);
-    assert(NULL != b);
-
-    return (a->creation >= b->creation ? a->creation - b->creation : -1);
-}
-#endif
-
-static void destroy_be(be_t *be)
-{
-    assert(NULL != be);
-
-//     if (NULL != be->fs) {
-//         uzfs_close(&be->fs);
-//     }
-    free(be);
-}
-
-// used as DupFunc
-static be_t *copy_be(nvpair_t *bepair)
-{
-    be_t *be, *ret;
-
-    be = ret = NULL;
-    do {
-        if (NULL == (be = malloc(sizeof(*be)))) {
-            break;
-        }
-        if (strlcpy(be->name, extract_name_from_be(bepair), STR_SIZE(be->name)) >= STR_SIZE(be->name)) {
-            break;
-        }
-        if (!extract_creation_from_be(bepair, &be->creation)) {
-            break;
-        }
-        ret = be;
-    } while (false);
-    if (ret != be) {
-        free(be);
-    }
-
-    return ret;
-}
-
-#ifdef DEBUG
-# include <time.h>
-// selection_dump(bes, (void (*)(void *)) print_be);
-static void print_be(be_t *be)
-{
-    time_t time;
-    struct tm tm;
-    size_t written;
-    char buffer[128];
-
-    assert(NULL != be);
-
-    time = (time_t) be->creation;
-    localtime_r(&time, &tm);
-    written = strftime(buffer, STR_SIZE(buffer), "%F %T", &tm);
-    assert(written < STR_LEN(buffer));
-    fprintf(stderr, "(%s) %s = %s (%" PRIu64 ")\n", __func__, be->name, buffer, be->creation);
-}
-#endif /* DEBUG */
-
-static selection_t *fetch_sorted_zint_be(paths_to_check_t *ptc, libbe_handle_t *lbh, CmpFunc cmp, char **error)
-{
-    nvlist_t *props;
-    selection_t *ret, *bes;
-
-    assert(NULL != ptc);
-    assert(NULL != lbh);
-    assert(NULL != cmp);
-
-    bes = ret = NULL;
-    props = NULL;
-    do {
-        nvpair_t *cur;
-
-        if (0 != be_prop_list_alloc(&props)) {
-            set_be_error(error, lbh, "be_prop_list_alloc failed");
-            break;
-        }
-        if (0 != be_get_bootenv_props(lbh, props)) {
-            set_be_error(error, lbh, "be_get_bootenv_props failed");
-            break;
-        }
-        if (NULL == (bes = selection_new(cmp, (DtorFunc) destroy_be, (DupFunc) copy_be))) {
-            set_generic_error(error, "TODO");
-            break;
-        }
-        for (cur = nvlist_next_nvpair(props, NULL); NULL != cur; cur = nvlist_next_nvpair(props, cur)) {
-            uzfs_ptr_t *fs;
-            const char *name;
-
-            name = extract_name_from_be(cur);
-            if (NULL == (fs = be_to_fs(ptc, lbh, name, error))) {
-                // TODO: real error handling
-                continue;
-            }
-            if (has_zfs_properties(fs)) {
-                if (!selection_add(bes, cur)) {
-                    // TODO: error handling
-                }
-            }
-            if (NULL != fs) {
-                uzfs_close(&fs);
-            }
-        }
-        ret = bes;
-    } while (false);
-    if (NULL != props) {
-        be_prop_list_free(props);
-    }
-    if (ret != bes) {
-        selection_destroy(bes);
-    }
-
-    return ret;
-}
-
-static bool apply_retention(be_t *UNUSED(be), void *UNUSED(data), char **UNUSED(error))
-{
-    return true;
-}
-
 static bm_code_t be_suitable(paths_to_check_t *ptc, void **data, char **error)
 {
-    size_t i;
     bm_code_t retval;
 
     assert(NULL != ptc);
@@ -233,6 +92,7 @@ static bm_code_t be_suitable(paths_to_check_t *ptc, void **data, char **error)
 
     retval = BM_ERROR;
     do {
+        size_t i;
         bool all_on_zfs;
         libbe_handle_t *lbh;
 
@@ -254,28 +114,6 @@ static bm_code_t be_suitable(paths_to_check_t *ptc, void **data, char **error)
 #ifdef DEBUG
         libbe_print_on_error(lbh, true); // TODO: explicit false when !DEBUG ?
 #endif /* DEBUG */
-#if 1 // TODO: TEST
-        {
-            bool ok;
-            selection_t *bes;
-
-            ok = false;
-            bes = NULL;
-            do {
-                if (NULL == (bes = fetch_sorted_zint_be(ptc, lbh, (CmpFunc) compare_be_by_creation_date_desc, error))) {
-                    break;
-                }
-                selection_dump(bes, (void (*)(void *)) print_be);
-                if (!selection_apply(bes, (bool (*)(void *, void *, char **)) apply_retention, NULL /* TODO: data */, error)) {
-                    break;
-                }
-                ok = true;
-            } while (false);
-            if (NULL != bes) {
-                selection_destroy(bes);
-            }
-        }
-#endif
         *data = lbh;
         retval = BM_OK;
     } while (false);
@@ -300,7 +138,7 @@ static bool be_take_snapshot(paths_to_check_t *ptc, const char *snapshot, const 
 
         lbh = (libbe_handle_t *) data;
         if (BE_ERR_SUCCESS != be_create(lbh, snapshot)) {
-            set_be_error(error, lbh, "failed to create bootenv %s", snapshot);
+            set_be_error(error, lbh, "failed to create BE '%s'", snapshot);
             break;
         }
         if (NULL == (fs = be_to_fs(ptc, lbh, snapshot, error))) {
@@ -318,56 +156,56 @@ static bool be_take_snapshot(paths_to_check_t *ptc, const char *snapshot, const 
     return ok;
 }
 
-static bool be_rollback(paths_to_check_t *ptc, void *data, bool dry_run, bool temporary, char **error)
+static bool be_cast_to_snapshot(snapshot_t *snap, nvpair_t *bepair, const char *name, char **error)
 {
     bool ok;
-    selection_t *bes;
+    extern int name_to_hook(const char *);
 
-    assert(NULL != ptc);
-    assert(NULL != data);
+    assert(NULL != snap);
+    assert(NULL != bepair);
 
     ok = false;
     do {
-        be_t *last;
-        libbe_handle_t *lbh;
-
-        lbh = (libbe_handle_t *) data;
-        if (NULL == (bes = fetch_sorted_zint_be(ptc, lbh, (CmpFunc) compare_be_by_creation_date_desc, error))) {
+        if (strlcpy(snap->name, name, SNAPSHOT_MAX_NAME_LEN) >= SNAPSHOT_MAX_NAME_LEN) {
+            set_generic_error(error, "BE name '%s' is too long %zu for %zu", name, strlen(name), SNAPSHOT_MAX_NAME_LEN);
             break;
         }
-        if (!selection_at(bes, 0, (void **) &last)) {
-            set_generic_error(error, "no identified BE to rollback to");
+        if (!be_get_prop_numeric(bepair, BE_PROPERTY_CREATION, &snap->creation, error)) {
             break;
         }
-        if (!dry_run && BE_ERR_SUCCESS != be_activate(lbh, last->name, temporary)) {
-            set_be_error(error, lbh, "failed to activate BE '%s'", last->name);
-            break;
-        }
-        fprintf(stderr, "system %s rollbacked on BE '%s'\n", dry_run ? "would be" : "was", last->name);
         ok = true;
     } while (false);
-    if (NULL != bes) {
-        selection_destroy(bes);
-    }
 
     return ok;
 }
 
-static bool be_list(paths_to_check_t *ptc, void *data, char **error)
+static bool be_list(paths_to_check_t *ptc, void *data, DList *l, char **error)
 {
+    bool ok;
+    DList *bes;
     nvlist_t *props;
-    selection_t *ret, *bes;
 
     assert(NULL != ptc);
     assert(NULL != data);
+    assert(NULL != l);
 
-    bes = ret = NULL;
+    ok = false;
+    bes = NULL;
     props = NULL;
     do {
         nvpair_t *cur;
         libbe_handle_t *lbh;
 
         lbh = (libbe_handle_t *) data;
+        if (NULL == (bes = malloc(sizeof(*bes)))) {
+            set_malloc_error(error, sizeof(*bes));
+            break;
+        }
+        dlist_init(bes, /*snapshot_copy, */snapshot_destroy);
+        if (!dlist_append(l, bes)) {
+            set_generic_error(error, "dlist_append failed");
+            break;
+        }
         if (0 != be_prop_list_alloc(&props)) {
             set_be_error(error, lbh, "be_prop_list_alloc failed");
             break;
@@ -376,45 +214,46 @@ static bool be_list(paths_to_check_t *ptc, void *data, char **error)
             set_be_error(error, lbh, "be_get_bootenv_props failed");
             break;
         }
-        if (NULL == (bes = selection_new((CmpFunc) compare_be_by_creation_date_desc, (DtorFunc) destroy_be, (DupFunc) copy_be))) {
-            set_generic_error(error, "TODO");
-            break;
-        }
-        for (cur = nvlist_next_nvpair(props, NULL); NULL != cur; cur = nvlist_next_nvpair(props, cur)) {
-            uzfs_ptr_t *fs;
+        for (ok = true, cur = nvlist_next_nvpair(props, NULL); ok && NULL != cur; cur = nvlist_next_nvpair(props, cur)) {
             const char *name;
+            snapshot_t *snap;
 
+            snap = malloc(sizeof(*snap)); // TODO
             name = extract_name_from_be(cur);
-            if (NULL == (fs = be_to_fs(ptc, lbh, name, error))) {
-                // TODO: real error handling
-                continue;
+            if (!(ok &= (NULL != (snap->fs = be_to_fs(ptc, lbh, name, error))))) {
+                break;
             }
-            if (has_zfs_properties(fs)) {
-                if (!selection_add(bes, cur)) {
-                    // TODO: error handling
+            if (has_zfs_properties(snap->fs, &snap->hook, &snap->version)) {
+                if (!(ok &= be_cast_to_snapshot(snap, cur, name, error) && dlist_append(bes, snap))) {
+                    // TODO: dlist_append failure
+                    break;
                 }
             }
-            if (NULL != fs) {
-                uzfs_close(&fs);
+#if 0
+            if (NULL != snap->fs) {
+                uzfs_close(&snap->fs);
             }
+#endif
         }
-        ret = bes;
     } while (false);
+#if 0
+    if (!ok && NULL != bes) {
+        dlist_clear(bes);
+        free(bes);
+    }
+#endif
     if (NULL != props) {
         be_prop_list_free(props);
     }
-    if (ret != bes) {
-        selection_destroy(bes);
-    }
 
-    return ret;
+    return ok;
 }
 
-static bool be_rollback_to(const char *name, void *data, bool temporary, char **error)
+static bool be_rollback_to(const snapshot_t *snap, void *data, bool temporary, char **error)
 {
     bool ok;
 
-    assert(NULL != name);
+    assert(NULL != snap);
     assert(NULL != data);
 
     ok = false;
@@ -422,8 +261,8 @@ static bool be_rollback_to(const char *name, void *data, bool temporary, char **
         libbe_handle_t *lbh;
 
         lbh = (libbe_handle_t *) data;
-        if (BE_ERR_SUCCESS != be_activate(lbh, name, temporary)) {
-            set_be_error(error, lbh, "failed to activate BE '%s'", name);
+        if (BE_ERR_SUCCESS != be_activate(lbh, snap->name, temporary)) {
+            set_be_error(error, lbh, "failed to activate BE '%s'", snap->name);
             break;
         }
         ok = true;
@@ -432,11 +271,11 @@ static bool be_rollback_to(const char *name, void *data, bool temporary, char **
     return ok;
 }
 
-static bool be_destroy_by_name(const char *name, void *data, bool UNUSED(recursive), char **error)
+static bool be_destroy_snapshot(snapshot_t *snap, void *data, bool UNUSED(recursive), char **error)
 {
     bool ok;
 
-    assert(NULL != name);
+    assert(NULL != snap);
     assert(NULL != data);
 
     ok = false;
@@ -444,8 +283,8 @@ static bool be_destroy_by_name(const char *name, void *data, bool UNUSED(recursi
         libbe_handle_t *lbh;
 
         lbh = (libbe_handle_t *) data;
-        if (BE_ERR_SUCCESS != be_destroy(lbh, name, BE_DESTROY_ORIGIN)) {
-            set_be_error(error, lbh, "failed to destroy BE '%s'", name);
+        if (BE_ERR_SUCCESS != be_destroy(lbh, snap->name, BE_DESTROY_ORIGIN)) {
+            set_be_error(error, lbh, "failed to destroy BE '%s'", snap->name);
             break;
         }
         ok = true;
@@ -469,8 +308,7 @@ const backup_method_t be_method = {
     be_suitable,
     be_fini,
     be_take_snapshot,
-    be_rollback,
     be_list,
     be_rollback_to,
-    be_destroy_by_name,
+    be_destroy_snapshot,
 };
