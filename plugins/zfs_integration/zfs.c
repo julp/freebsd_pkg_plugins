@@ -601,6 +601,50 @@ bool uzfs_same_fs(uzfs_ptr_t *fs1, uzfs_ptr_t *fs2)
     return NULL != fs1_name && NULL != fs2_name && 0 == strcmp(fs1_name, fs2_name);
 }
 
+static int filesystems_iter_callback_callback(zfs_handle_t *fh, void *data)
+{
+    bool ok;
+
+    ok = false;
+    do {
+//         uzfs_ptr_t *child;
+
+//         child = uzfs_wrap(fh, UZFS_TYPE_FILESYSTEM);
+        debug("%s is a child of %s", zfs_get_name(fh), (const char *) data);
+        zfs_close(fh);
+        ok = true;
+    } while (false);
+
+    return ok ? 0 : 1;
+}
+
+/**
+ * Determine the location of the filesystem *child* according to *parent*
+ *
+ * @param parent the reference ZFS filesystem
+ * @param child the filesystem to check compared to *parent*
+ *
+ * @return `UZFS_LOCATION_SAME` if *parent* and *child* are the same filesystem,
+ * `UZFS_LOCATION_CHILD` if *child* is a subfilesystem of *parent* (parent, grandparent, grandgrandparent and so on)
+ * or `UZFS_LOCATION_NONE` if *child* is not affiliated to *parent*.
+ *
+ * @note this function doesn't look for the opposite relation (if *child* is an ancestor of *parent*, only if it [child] is a descendant)
+ *
+ * @todo need to take care of a child with mountpoint=none?
+ */
+#if 0
+extern int zfs_parent_name(zfs_handle_t *, char *, size_t);
+#endif
+uzfs_location_t uzfs_depth(uzfs_ptr_t *parent, uzfs_ptr_t *child)
+{
+    assert_uzfs_ptr_t_is(parent, ZFS_TYPE_FILESYSTEM);
+    assert_uzfs_ptr_t_is(child, ZFS_TYPE_FILESYSTEM);
+
+    zfs_iter_filesystems(parent->fh, filesystems_iter_callback_callback, (void *) zfs_get_name(parent->fh));
+
+    return -1;
+}
+
 bool uzfs_rollback(uzfs_ptr_t *fs, uzfs_ptr_t *snapshot, bool force, char **error)
 {
     bool ok;
@@ -656,6 +700,8 @@ bool uzfs_iter_snapshots(uzfs_ptr_t *fs, bool (*callback)(uzfs_ptr_t *, void *, 
 }
 
 #if 0
+typedef int (*zfs_iter_f)(zfs_handle_t *, void *);
+
 extern int zfs_iter_snapshots(zfs_handle_t *, boolean_t, zfs_iter_f, void *, uint64_t, uint64_t);
 extern int zfs_iter_snapshots_sorted(zfs_handle_t *, zfs_iter_f, void *, uint64_t, uint64_t);
 extern int zfs_iter_snapspec(zfs_handle_t *, const char *, zfs_iter_f, void *);

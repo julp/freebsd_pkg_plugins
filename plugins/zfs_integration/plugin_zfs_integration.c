@@ -18,7 +18,7 @@ extern const backup_method_t raw_zfs_method;
 
 const backup_method_t *available_methods[] = {
 #ifdef HAVE_BE
-//     &be_method,
+    &be_method,
 #endif /* HAVE_BE */
     &raw_zfs_method,
     &none_method,
@@ -110,7 +110,7 @@ static bool purge_snapshots(const retention_t *retention, char **error)
     DList l; // snapshots per filesystem
 
     ok = false;
-    dlist_init(&l, (DtorFunc) dlist_clear);
+    dlist_init(&l, NULL, (DtorFunc) dlist_clear);
     do {
         DList *l2; // snapshots (on a given filesystem)
         Iterator it;
@@ -141,7 +141,7 @@ static int pkg_zint_main(int argc, char **argv)
     error = NULL;
     status = EPKG_FATAL;
     dry_run = temporary = yes = false;
-    dlist_init(&l, (DtorFunc) dlist_clear);
+    dlist_init(&l, NULL, (DtorFunc) dlist_clear);
     while (-1 != (ch = getopt_long(argc, argv, pkg_zint_optstr, pkg_zint_long_options, NULL))) {
         switch (ch) {
             case 'n':

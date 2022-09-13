@@ -8,21 +8,45 @@
 
 #include "attributes.h"
 #include "dlist.h"
+#include "error.h"
 
-#define ALLOC_ELEMENT(el, ptr) \
-    do { \
-        if (NULL == (el = malloc(sizeof(*el)))) { \
-            return false; \
-        } \
-        el->data = ptr; \
-    } while (0);
+static inline DListElement *alloc_element(DList *list, void *data, char **error)
+{
+    DListElement *el;
 
-void dlist_init(DList *list, DtorFunc dtor)
+    if (NULL == (el = malloc(sizeof(*el)))) {
+        set_malloc_error(error, sizeof(*el));
+    } else {
+        if (NULL == list->dup) {
+            el->data = data;
+        } else {
+            el->data = list->dup(data);
+        }
+    }
+
+    return el;
+}
+
+DList *dlist_new(DupFunc dup, DtorFunc dtor, char **error)
+{
+    DList *list;
+
+    if (NULL == (list = malloc(sizeof(*list)))) {
+        set_malloc_error(error, sizeof(*list));
+    } else {
+        dlist_init(list, dup, dtor);
+    }
+
+    return list;
+}
+
+void dlist_init(DList *list, DupFunc dup, DtorFunc dtor)
 {
     assert(NULL != list);
 
     list->length = 0;
     list->head = list->tail = NULL;
+    list->dup = dup;
     list->dtor = dtor;
 }
 
@@ -66,25 +90,40 @@ void dlist_clear(DList *list)
     list->head = list->tail = NULL;
 }
 
-bool dlist_append(DList *list, void *data)
+void dlist_destroy(DList *list)
 {
-    DListElement *tmp;
-
     assert(NULL != list);
 
-    ALLOC_ELEMENT(tmp, data);
-    tmp->next = NULL;
-    if (NULL != list->tail) {
-        list->tail->next = tmp;
-        tmp->prev = list->tail;
-        list->tail = tmp;
-    } else {
-        list->head = list->tail = tmp;
-        tmp->prev = NULL;
-    }
-    ++list->length;
+    dlist_clear(list);
+    free(list);
+}
 
-    return true;
+bool dlist_append(DList *list, void *data, char **error)
+{
+    bool ok;
+
+    assert(NULL != list);
+    ok = false;
+    do {
+        DListElement *tmp;
+
+        if (NULL == (tmp = alloc_element(list, data, error))) {
+            break;
+        }
+        tmp->next = NULL;
+        if (NULL != list->tail) {
+            list->tail->next = tmp;
+            tmp->prev = list->tail;
+            list->tail = tmp;
+        } else {
+            list->head = list->tail = tmp;
+            tmp->prev = NULL;
+        }
+        ++list->length;
+        ok = true;
+    } while (false);
+
+    return ok;
 }
 
 DListElement *dlist_find_first(DList *list, CmpFunc cmp, void *data)
@@ -119,44 +158,60 @@ DListElement *dlist_find_last(DList *list, CmpFunc cmp, void *data)
     return NULL;
 }
 
-bool dlist_insert_before(DList *list, DListElement *sibling, void *data)
+bool dlist_insert_before(DList *list, DListElement *sibling, void *data, char **error)
 {
+    bool ok;
+
     assert(NULL != list);
     assert(NULL != sibling);
 
     if (sibling == list->head) {
-        return dlist_prepend(list, data);
+        ok = dlist_prepend(list, data, error);
     } else {
-        DListElement *tmp;
+        ok = false;
+        do {
+            DListElement *tmp;
 
-        ALLOC_ELEMENT(tmp, data);
-        tmp->next = sibling;
-        tmp->prev = sibling->prev;
-        sibling->prev->next = tmp;
-        sibling->prev = tmp;
+            if (NULL == (tmp = alloc_element(list, data, error))) {
+                break;
+            }
+            tmp->next = sibling;
+            tmp->prev = sibling->prev;
+            sibling->prev->next = tmp;
+            sibling->prev = tmp;
+            ok = true;
+        } while (false);
     }
 
-    return true;
+    return ok;
 }
 
-bool dlist_insert_after(DList *list, DListElement *sibling, void *data)
+bool dlist_insert_after(DList *list, DListElement *sibling, void *data, char **error)
 {
+    bool ok;
+
     assert(NULL != list);
     assert(NULL != sibling);
 
     if (sibling == list->tail) {
-        return dlist_append(list, data);
+        ok = dlist_append(list, data, error);
     } else {
-        DListElement *tmp;
+        ok = false;
+        do {
+            DListElement *tmp;
 
-        ALLOC_ELEMENT(tmp, data);
-        sibling->next->prev = tmp;
-        tmp->next = sibling->next;
-        tmp->prev = sibling;
-        sibling->next = tmp;
+            if (NULL == (tmp = alloc_element(list, data, error))) {
+                break;
+            }
+            sibling->next->prev = tmp;
+            tmp->next = sibling->next;
+            tmp->prev = sibling;
+            sibling->next = tmp;
+            ok = true;
+        } while (false);
     }
 
-    return true;
+    return ok;
 }
 
 DListElement *dlist_link_at(DList *list, int n)
@@ -183,7 +238,7 @@ DListElement *dlist_link_at(DList *list, int n)
     return el;
 }
 
-bool dlist_insert_at(DList *list, int n, void *data)
+bool dlist_insert_at(DList *list, int n, void *data, char **error)
 {
     DListElement *el;
 
@@ -192,7 +247,7 @@ bool dlist_insert_at(DList *list, int n, void *data)
     if (NULL == (el = dlist_link_at(list, n))) {
         return false;
     } else {
-        return dlist_insert_before(list, el, data);
+        return dlist_insert_before(list, el, data, error);
     }
 }
 
@@ -217,24 +272,32 @@ bool dlist_empty(DList *list)
     return NULL == list->head;
 }
 
-bool dlist_prepend(DList *list, void *data)
+bool dlist_prepend(DList *list, void *data, char **error)
 {
-    DListElement *tmp;
+    bool ok;
 
     assert(NULL != list);
 
-    ALLOC_ELEMENT(tmp, data);
-    tmp->prev = NULL;
-    if (NULL != list->head) {
-        tmp->next = list->head;
-    } else {
-        tmp->next = NULL;
-        list->tail = tmp;
-    }
-    list->head = tmp;
-    ++list->length;
+    ok = false;
+    do {
+        DListElement *tmp;
 
-    return true;
+        if (NULL == (tmp = alloc_element(list, data, error))) {
+            break;
+        }
+        tmp->prev = NULL;
+        if (NULL != list->head) {
+            tmp->next = list->head;
+        } else {
+            tmp->next = NULL;
+            list->tail = tmp;
+        }
+        list->head = tmp;
+        ++list->length;
+        ok = true;
+    } while (false);
+
+    return ok;
 }
 
 void dlist_remove_head(DList *list)
@@ -367,13 +430,6 @@ void dlist_sort(DList *list, CmpFunc cmp)
         } while (swapped);
     }
 }
-
-/*
-void dlist_apply(DList *list, void (*x)(int))
-{
-    //
-}
-*/
 
 #ifndef WITHOUT_ITERATOR
 static void dlist_iterator_first(const void *collection, void **state)

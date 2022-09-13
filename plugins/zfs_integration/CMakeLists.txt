@@ -85,6 +85,7 @@ set(ZINT_SOURCES
     ${PROJECT_SOURCE_DIR}/shared/path_join.c
     ${PROJECT_SOURCE_DIR}/kissc/stpcpy_sp.c
     ${PROJECT_SOURCE_DIR}/kissc/dlist.c
+    ${PROJECT_SOURCE_DIR}/kissc/hashtable.c
     ${PROJECT_SOURCE_DIR}/kissc/iterator.c
 )
 set(ZINT_LIBRARIES

@@ -6,6 +6,7 @@
 #include "zfs.h"
 #include "probe.h"
 #include "backup_method.h"
+#include "hashtable.h"
 
 typedef struct {
     bool recursive;
@@ -95,7 +96,7 @@ retry:
             debug("skipping '%s', not created by zint (property '%s' missing)", fullname, ZINT_HOOK_PROPERTY);
             break;
         }
-        debug("%s was created by zint version %" PRIu64 " for '%s' (%d)", fullname, version, hook, name_to_hook(hook));
+//         debug("%s was created by zint version %" PRIu64 " for '%s' (%d)", fullname, version, hook, name_to_hook(hook));
         if (NULL != output_hook) {
             *output_hook = name_to_hook(hook);
         }
@@ -144,6 +145,9 @@ static bm_code_t raw_zfs_suitable(paths_to_check_t *ptc, void **data, char **err
             fprintf(stderr, "WARNING: pkg database is not located on a ZFS filesystem (%s), reverting '%s' will lead pkg to believe you use newer packages than they really are\n", ptc->pkg_dbdir.path, ptc->localbase.path);
         }
         *data = ctxt;
+#if 1
+        uzfs_depth(ptc->root.fs, ptc->localbase.fs);
+#endif
         retval = BM_OK;
     } while (false);
 
@@ -241,17 +245,15 @@ static bool snaphosts_iter_callback_build_array(uzfs_ptr_t *fs, void *data, char
 
     ok = false;
     do {
-        snapshot_t *snap;
+        snapshot_t snap;
 
         l = (DList *) data;
-        snap = malloc(sizeof(*snap)); // TODO
-        snap->fs = fs;
-        if (has_zfs_properties(fs, &snap->hook, &snap->version)) {
-            if (!raw_zfs_cast_to_snapshot(snap, error)) {
+        snap.fs = fs;
+        if (has_zfs_properties(fs, &snap.hook, &snap.version)) {
+            if (!raw_zfs_cast_to_snapshot(&snap, error)) {
                 break;
             }
-            if (!dlist_append(l, snap)) {
-                set_generic_error(error, "dlist_append failed");
+            if (!dlist_append(l, &snap, error)) {
                 break;
             }
         }
@@ -272,26 +274,30 @@ static bool raw_zfs_list(paths_to_check_t *ptc, void *data, DList *l, char **err
     ok = false;
     do {
         size_t i;
+        Iterator it;
+        HashTable ht;
+        uzfs_ptr_t *fs;
 
-        for (ok = true, i = 0; ok && i < _FS_COUNT; i++) {
+        hashtable_ascii_cs_init(&ht, NULL, NULL, NULL);
+        for (i = 0; i < _FS_COUNT; i++) {
             if (NULL != ptc->paths[i].fs) {
-                DList *snapshots;
-
-                // TODO: ignorer les FS situés au même endroit (les différents pointeurs ZFS n'étant pas recyclés - logique)
-                // passer par une HashTable associant uzfs_get_name en clé au (premier) pointeur uzfs_ptr_t se présentant pour éviter les doublons ?
-//                 debug("%s = %p", ptc->paths[i].path, ptc->paths[i].fs);
-                if (!(ok &= NULL != (snapshots = malloc(sizeof(*snapshots))))) {
-                    set_malloc_error(error, sizeof(*snapshots));
-                    break;
-                }
-                dlist_init(snapshots, /*snapshot_copy, */snapshot_destroy);
-                if (!(ok &= dlist_append(l, snapshots))) {
-                    set_generic_error(error, "dlist_append failed");
-                    break;
-                }
-                ok &= uzfs_iter_snapshots(ptc->paths[i].fs, snaphosts_iter_callback_build_array, snapshots, error);
+                hashtable_put(&ht, HT_PUT_ON_DUP_KEY_PRESERVE, uzfs_get_name(ptc->paths[i].fs), ptc->paths[i].fs, NULL);
             }
         }
+        hashtable_to_iterator(&it, &ht);
+        for (ok = true, iterator_first(&it); ok && iterator_is_valid(&it, NULL, &fs); iterator_next(&it)) {
+            DList *snapshots;
+
+            if (!(ok &= NULL != (snapshots = dlist_new(snapshot_copy, snapshot_destroy, error)))) {
+                break;
+            }
+            if (!(ok &= dlist_append(l, snapshots, error))) {
+                break;
+            }
+            ok &= uzfs_iter_snapshots(fs, snaphosts_iter_callback_build_array, snapshots, error);
+        }
+        iterator_close(&it);
+        hashtable_destroy(&ht);
     } while (false);
 
     return ok;

@@ -197,13 +197,10 @@ static bool be_list(paths_to_check_t *ptc, void *data, DList *l, char **error)
         libbe_handle_t *lbh;
 
         lbh = (libbe_handle_t *) data;
-        if (NULL == (bes = malloc(sizeof(*bes)))) {
-            set_malloc_error(error, sizeof(*bes));
+        if (NULL == (bes = dlist_new(snapshot_copy, snapshot_destroy, error))) {
             break;
         }
-        dlist_init(bes, /*snapshot_copy, */snapshot_destroy);
-        if (!dlist_append(l, bes)) {
-            set_generic_error(error, "dlist_append failed");
+        if (!dlist_append(l, bes, error)) {
             break;
         }
         if (0 != be_prop_list_alloc(&props)) {
@@ -215,23 +212,24 @@ static bool be_list(paths_to_check_t *ptc, void *data, DList *l, char **error)
             break;
         }
         for (ok = true, cur = nvlist_next_nvpair(props, NULL); ok && NULL != cur; cur = nvlist_next_nvpair(props, cur)) {
+            snapshot_t snap;
             const char *name;
-            snapshot_t *snap;
 
-            snap = malloc(sizeof(*snap)); // TODO
             name = extract_name_from_be(cur);
-            if (!(ok &= (NULL != (snap->fs = be_to_fs(ptc, lbh, name, error))))) {
+            if (!(ok &= (NULL != (snap.fs = be_to_fs(ptc, lbh, name, error))))) {
                 break;
             }
-            if (has_zfs_properties(snap->fs, &snap->hook, &snap->version)) {
-                if (!(ok &= be_cast_to_snapshot(snap, cur, name, error) && dlist_append(bes, snap))) {
-                    // TODO: dlist_append failure
+            if (has_zfs_properties(snap.fs, &snap.hook, &snap.version)) {
+                if (!(ok &= be_cast_to_snapshot(&snap, cur, name, error))) {
+                    break;
+                }
+                if (!(ok &= dlist_append(bes, &snap, error))) {
                     break;
                 }
             }
 #if 0
-            if (NULL != snap->fs) {
-                uzfs_close(&snap->fs);
+            if (NULL != snap.fs) {
+                uzfs_close(&snap.fs);
             }
 #endif
         }

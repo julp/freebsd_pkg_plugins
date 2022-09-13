@@ -19,6 +19,12 @@ typedef enum {
     UZFS_TYPE_LAST = UZFS_TYPE_SNAPSHOT,
 } uzfs_type_t;
 
+typedef enum {
+    UZFS_LOCATION_SAME,
+    UZFS_LOCATION_CHILD,
+    UZFS_LOCATION_NONE,
+} uzfs_location_t;
+
 typedef struct uzfs_lib_t uzfs_lib_t;
 typedef struct uzfs_ptr_t uzfs_ptr_t;
 
@@ -46,3 +52,5 @@ bool uzfs_get_prop(uzfs_ptr_t *, const char *, char *, size_t);
 bool uzfs_get_prop_numeric(uzfs_ptr_t *, const char *, uint64_t *);
 bool uzfs_set_prop(uzfs_ptr_t *, const char *, const char *, char **);
 bool uzfs_set_prop_numeric(uzfs_ptr_t *, const char *, uint64_t, char **);
+
+uzfs_location_t uzfs_depth(uzfs_ptr_t *, uzfs_ptr_t *);
