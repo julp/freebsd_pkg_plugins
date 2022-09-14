@@ -89,14 +89,13 @@ retry:
                 }
             }
             // </TODO: for transition, to be removed in a future version>
-            debug("skipping '%s', not created by zint (property '%s' missing)", fullname, ZINT_VERSION_PROPERTY);
+            debug("DEBUG: ignoring '%s', not created by zint (property '%s' missing)", fullname, ZINT_VERSION_PROPERTY);
             break;
         }
         if (!uzfs_get_prop(fs, ZINT_HOOK_PROPERTY, hook, STR_SIZE(hook))) {
-            debug("skipping '%s', not created by zint (property '%s' missing)", fullname, ZINT_HOOK_PROPERTY);
+            debug("DEBUG: ignoring '%s', not created by zint (property '%s' missing)", fullname, ZINT_HOOK_PROPERTY);
             break;
         }
-//         debug("%s was created by zint version %" PRIu64 " for '%s' (%d)", fullname, version, hook, name_to_hook(hook));
         if (NULL != output_hook) {
             *output_hook = name_to_hook(hook);
         }

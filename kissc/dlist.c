@@ -502,7 +502,8 @@ void dlist_to_iterator(Iterator *it, DList *list)
         dlist_iterator_current,
         dlist_iterator_next, dlist_iterator_previous,
         dlist_iterator_is_valid,
-        NULL
+        NULL,
+        (iterator_count_t) dlist_length, NULL
     );
 }
 #endif /* !WITHOUT_ITERATOR */

@@ -47,7 +47,7 @@
 #include "attributes.h"
 #include "iterator.h"
 
-static const Iterator NULL_ITERATOR = { NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL };
+static const Iterator NULL_ITERATOR;
 
 /**
  * Initialize an iterator
@@ -55,17 +55,17 @@ static const Iterator NULL_ITERATOR = { NULL, NULL, NULL, NULL, NULL, NULL, NULL
  * @param collection the collection to iterate on
  * @param state a data passed to the callbacks to mark the current position in the collection
  * @param first a callback to (re)initialize the current position on the first item of the
- * collection (may be NULL the collection is not intended to be traversed in forward order)
+ * collection (may be `NULL` if the collection is not intended to be traversed in forward order)
  * @param last a callback to (re)initialize the current position on the last item of the
- * collection (may be NULL the collection is not intended to be traversed in reverse order)
+ * collection (may be `NULL` if the collection is not intended to be traversed in reverse order)
  * @param current the callback to get the current element
  * @param next the callback to move the internal position to the next element
- * (may be NULL the collection is not intended to be traversed in forward order)
+ * (may be `NULL` if the collection is not intended to be traversed in forward order)
  * @param previous the callback to move the internal position to the previous element
- * (may be NULL the collection is not intended to be traversed in reverse order)
+ * (may be `NULL` if the collection is not intended to be traversed in reverse order)
  * @param valid the callback to known if the internal position is still valid after
  * moving it to its potential next or previous element
- * @param close a callback to free internal state (NULL if you have nothing to free)
+ * @param close a callback to free internal state (`NULL` if you have nothing to free)
  */
 void iterator_init(
     Iterator *it,
@@ -77,7 +77,9 @@ void iterator_init(
     iterator_next_t next,
     iterator_previous_t previous,
     iterator_is_valid_t valid,
-    iterator_close_t close
+    iterator_close_t close,
+    iterator_count_t count,
+    iterator_member_t member
 ) {
     it->state = state;
     it->collection = collection;
@@ -88,6 +90,8 @@ void iterator_init(
     it->previous = previous;
     it->valid = valid;
     it->close = close;
+    it->count = count;
+    it->member = member;
 }
 
 /**
@@ -174,6 +178,40 @@ bool _iterator_is_valid(Iterator *it, void **key, void **value)
     return valid;
 }
 
+bool iterator_empty(Iterator *it)
+{
+    bool empty;
+
+    assert(NULL != it);
+
+    if (NULL != it->count) {
+        empty = 0 == it->count(it->collection);
+    } else {
+        iterator_first(it);
+        empty = !iterator_is_valid(it, NULL, NULL);
+    }
+
+    return empty;
+}
+
+size_t iterator_count(Iterator *it)
+{
+    size_t count;
+
+    assert(NULL != it);
+
+    if (NULL != it->count) {
+        count = it->count(it->collection);
+    } else {
+        count = 0;
+        for (iterator_first(it); iterator_is_valid(it, NULL, NULL); iterator_next(it)) {
+            ++count;
+        }
+    }
+
+    return count;
+}
+
 #define CHAR_P(p) \
     ((const char *) (p))
 
@@ -226,11 +264,10 @@ static void array_iterator_current(const void *collection, void **state, void **
     as_t *s;
 
     assert(NULL != state);
-    assert(NULL != value);
 
     s = (as_t *) *state;
     if (NULL != value) {
-        memcpy((char *) value, s->ptr, s->element_size);
+      *value = (void *) s->ptr;
     }
     if (NULL != key) {
         *((uint64_t *) key) = (s->ptr - CHAR_P(collection)) / s->element_size;
@@ -283,7 +320,8 @@ void array_to_iterator(Iterator *it, void *array, size_t element_size, size_t el
         array_iterator_current,
         array_iterator_next, array_iterator_prev,
         array_iterator_is_valid,
-        free
+        free,
+        NULL, NULL
     );
 }
 
@@ -342,7 +380,8 @@ void null_terminated_ptr_array_to_iterator(Iterator *it, void **array)
         null_terminated_ptr_array_iterator_current,
         null_terminated_ptr_array_iterator_next, NULL,
         null_terminated_ptr_array_iterator_is_valid,
-        NULL
+        NULL,
+        NULL, NULL
     );
 }
 
@@ -383,7 +422,6 @@ static void null_sentineled_field_terminated_array_iterator_current(const void *
     nsftas_t *s;
 
     assert(NULL != state);
-    assert(NULL != value);
 
     s = (nsftas_t *) *state;
     if (NULL != value) {
@@ -430,6 +468,104 @@ void null_sentineled_field_terminated_array_to_iterator(Iterator *it, void *arra
         null_sentineled_field_terminated_array_iterator_current,
         null_sentineled_field_terminated_array_iterator_next, NULL,
         null_sentineled_field_terminated_array_iterator_is_valid,
-        free
+        free,
+        NULL, NULL
     );
+}
+
+/* ========== utilities ========== */
+
+typedef bool (*FilterFunc)(void *, void *);
+
+bool iterator_any(Iterator *it, FilterFunc callback, void *data)
+{
+    bool ok;
+    void *value;
+
+    assert(NULL != it);
+
+    for (ok = false, iterator_first(it); !ok && iterator_is_valid(it, NULL, &value); iterator_next(it)) {
+        ok = callback(value, data);
+    }
+
+    return ok;
+}
+
+bool iterator_all(Iterator *it, FilterFunc callback, void *data)
+{
+    bool ok;
+    void *value;
+
+    assert(NULL != it);
+
+    for (ok = true, iterator_first(it); ok && iterator_is_valid(it, NULL, &value); iterator_next(it)) {
+        ok &= callback(value, data);
+    }
+
+    return ok;
+}
+
+bool iterator_at(Iterator *it, int index, void **data)
+{
+    int i;
+    void *value;
+    void (*next)(Iterator *);
+    void (*first)(Iterator *);
+
+    assert(NULL != it);
+
+    if (index < 0) {
+        index = -index;
+        first = iterator_last;
+        next = iterator_previous;
+    } else {
+        first = iterator_first;
+        next = iterator_next;
+    }
+    for (i = 0, first(it); i < index && iterator_is_valid(it, NULL, &value); next(it))
+        ;
+    if (i == index && NULL != data) {
+        *data = value;
+    }
+
+    return i == index;
+}
+
+bool iterator_max(Iterator *it, CmpFunc cmp, void **max)
+{
+    bool any;
+    void *current_max, *value;
+
+    assert(NULL != it);
+
+    iterator_first(it);
+    any = iterator_is_valid(it, NULL, &current_max/*max*/);
+    if (any) {
+        iterator_next(it);
+        while (iterator_is_valid(it, NULL, &value)) {
+//         do {
+            if (cmp(value, current_max/**max*/) > 0) {
+                /**max*/current_max = value;
+            }
+            iterator_next(it);
+        }
+//         } while (iterator_is_valid(it, NULL, &value));
+        *max = current_max;
+    }
+
+    return any;
+}
+
+bool iterator_reduce(Iterator *it, void *acc, bool (*callback)(void *acc, void *value, char **error), char **error)
+{
+    bool ok;
+    void *value;
+
+    assert(NULL != it);
+
+    for (ok = true, iterator_first(it); ok && iterator_is_valid(it, NULL, &value); iterator_next(it)) {
+        ok &= callback(acc, value, error);
+    }
+
+    return ok;
 }

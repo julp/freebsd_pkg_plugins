@@ -104,10 +104,36 @@ static void pkg_zint_usage(void)
     fprintf(stderr, "usage: pkg %s [-%s] rollback\n", NAME, pkg_zint_optstr);
 }
 
+static bool add(void *acc, void *value, char **UNUSED(error))
+{
+    *((int *) acc) += *((int *) value);
+
+    return true;
+}
+
+static bool mul(void *acc, void *value, char **UNUSED(error))
+{
+    *((int *) acc) *= *((int *) value);
+
+    return true;
+}
+
+static int int_cmp_max(const void *a, const void *b)
+{
+    return (*(const int */***/) a) - (*(const int */***/) b);
+}
+
+static int int_cmp_min(const void *a, const void *b)
+{
+    return (*(const int */***/) b) - (*(const int */***/) a);
+}
+
 static bool purge_snapshots(const retention_t *retention, char **error)
 {
     bool ok;
     DList l; // snapshots per filesystem
+
+    assert(NULL != method); // to make sure purge_snapshots is not called prior to method have been set
 
     ok = false;
     dlist_init(&l, NULL, (DtorFunc) dlist_clear);
@@ -120,12 +146,45 @@ static bool purge_snapshots(const retention_t *retention, char **error)
         }
         dlist_to_iterator(&it, &l);
         for (iterator_first(&it); iterator_is_valid(&it, NULL, &l2); iterator_next(&it)) {
+            int i;
+            Iterator it2;
+            snapshot_t *snap;
+
+            i = 1;
             // TODO: appliquer rétention (fonction de comparaison appropriée puis suppression de ceux qui ne sont pas à conserver)
             dlist_sort(l2, snapshot_compare_by_creation_date_desc);
+            dlist_to_iterator(&it2, l2);
+            for (iterator_first(&it2); iterator_is_valid(&it2, NULL, &snap); iterator_next(&it2)) {
+                debug("%d. %s was created by zint version %" PRIu64 " for '%s' (%d)", i++, snap->name, snap->version, hook_to_name(snap->hook), snap->hook);
+            }
+            iterator_close(&it2);
         }
         iterator_close(&it);
     } while (false);
     dlist_clear(&l);
+    {
+        Iterator it;
+        int sum, product, *minmax;
+        int numbers[] = {1, 2, 3, 4, 5, 6};
+
+        array_to_iterator(&it, numbers, sizeof(numbers[0]), ARRAY_SIZE(numbers));
+        //
+        debug("COUNT = %zu", iterator_count(&it));
+        //
+        sum = 0;
+        iterator_reduce(&it, &sum, add, NULL);
+        debug("SUM = %d", sum);
+        //
+        product = 1;
+        iterator_reduce(&it, &product, mul, NULL);
+        debug("PRODUCT = %d", product);
+        //
+        iterator_max(&it, int_cmp_max, (void **) &minmax);
+        debug("MAX = %d", *minmax);
+        //
+        iterator_max(&it, int_cmp_min, (void **) &minmax);
+        debug("MIN = %d", *minmax);
+    }
 
     return ok;
 }
@@ -178,18 +237,10 @@ static int pkg_zint_main(int argc, char **argv)
 
             dlist_to_iterator(&it, &l);
             for (iterator_first(&it); iterator_is_valid(&it, NULL, &l2); iterator_next(&it)) {
-                Iterator it2;
-                snapshot_t *last, *snap;
+                snapshot_t *last;
 
                 last = NULL;
                 dlist_sort(l2, snapshot_compare_by_creation_date_desc);
-#if 1
-                dlist_to_iterator(&it2, l2);
-                for (iterator_first(&it2); iterator_is_valid(&it2, NULL, &snap); iterator_next(&it2)) {
-                    debug("%s was created by zint version %" PRIu64 " for '%s' (%d)", snap->name, snap->version, hook_to_name(snap->hook), snap->hook);
-                }
-                iterator_close(&it2);
-#endif
                 if (!dlist_at(l2, 0, (void **) &last)) {
                     set_generic_error(&error, "no identified previous version to rollback to");
                     break;
@@ -386,6 +437,7 @@ int pkg_plugin_init(struct pkg_plugin *p)
         }
         assert(NULL != method);
         debug("DEBUG: using method '%s'", method->name);
+        purge_snapshots(retention, &error);
     } while (false);
     if (EPKG_FATAL == status && NULL != error) {
         pkg_plugin_error(self, "%s", error);

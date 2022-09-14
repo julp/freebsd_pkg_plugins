@@ -869,7 +869,8 @@ void hashtable_to_iterator(Iterator *it, HashTable *ht)
         hashtable_iterator_current,
         hashtable_iterator_next, hashtable_iterator_previous,
         hashtable_iterator_is_valid,
-        NULL
+        NULL,
+        (iterator_count_t) hashtable_size, (iterator_member_t) _hashtable_contains
     );
 }
 #endif /* !WITHOUT_ITERATOR */
