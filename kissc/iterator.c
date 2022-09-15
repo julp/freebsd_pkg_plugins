@@ -66,6 +66,9 @@ static const Iterator NULL_ITERATOR;
  * @param valid the callback to known if the internal position is still valid after
  * moving it to its potential next or previous element
  * @param close a callback to free internal state (`NULL` if you have nothing to free)
+ * @param count if you can provide a callback to get the number of elements in *collection* without
+ * traversing it set it there. If not, set it to `NULL` to use the default (and slow) algorithm.
+ * @param member TODO
  */
 void iterator_init(
     Iterator *it,
@@ -204,6 +207,7 @@ size_t iterator_count(Iterator *it)
         count = it->count(it->collection);
     } else {
         count = 0;
+        // TODO: use iterator_reduce ?
         for (iterator_first(it); iterator_is_valid(it, NULL, NULL); iterator_next(it)) {
             ++count;
         }
@@ -297,13 +301,30 @@ static void array_iterator_prev(const void *UNUSED(collection), void **state)
 }
 
 /**
- * Iterate on an array of struct (or union) where one of its field is sentineled
- * by a NULL pointer.
+ * Iterate on a "regular" C-array of any type.
  *
  * @param it the iterator to initialize
  * @param array the array to iterate on
  * @param element_size the size of an element of this array
  * @param element_count the number of elements in the array
+ *
+ * Example:
+ * \code
+ *   Iterator it;
+ *   int i, numbers[] = {1, 2, 3, 4};
+ *
+ *   i = 0;
+ *   // initialize the iterator
+ *   array_to_iterator(&it, sizeof(numbers[0]), ARRAY_SIZE(numbers));
+ *   // iterate on values from numbers
+ *   for (iterator_first(&it); iterator_is_valid(&it, NULL, &value); iterator_next(&it)) {
+ *     printf("%d: %d\n", i++, *value);
+ *   }
+ *   // or use whatever iterator_* function(s)
+ *   printf("Their sum is: %" PRIi64 "\n", iterator_sum(&it));
+ *   // but don't forget to call iterate_close when you're done
+ *   iterator_close(&it);
+ * \endcode
  */
 void array_to_iterator(Iterator *it, void *array, size_t element_size, size_t element_count)
 {
@@ -475,36 +496,72 @@ void null_sentineled_field_terminated_array_to_iterator(Iterator *it, void *arra
 
 /* ========== utilities ========== */
 
-typedef bool (*FilterFunc)(void *, void *);
-
-bool iterator_any(Iterator *it, FilterFunc callback, void *data)
+/**
+ * Check if a collection contains at least one value from which *callback* returns `true`
+ *
+ * @param it the iterator to traverse (until *callback* returns `true`)
+ * @param callback the callback called on each element for comparaison or test
+ * @param data a potential user data to transmit to each call to *callback* (if you don't
+ * use it set it to `NULL` then ignore this parameter in your callback)
+ *
+ * @return `true` if at least one value satisfies *callback* else `false`
+ *
+ * An example which somewhat mimics the function iterator_member:
+ * \code
+ *   static bool is_same_string(const void *value, const void *data) {
+ *       return 0 == strcmp((const char *) value, (const char *) data);
+ *   }
+ *
+ *   bool found;
+ *   Iterator it;
+ *   const char *words[] = {"hello", "world"};
+ *
+ *   array_to_iterator(&it, sizeof(words[0]), ARRAY_SIZE(words));
+ *   found = iterator_any(&it, is_same_string, "hello");
+ *   printf("words %s contain%s anagram\n", found ? "" : "does not", found ? "" : "s");
+ *   iterator_close(&it);
+ * \endcode
+ **/
+bool iterator_any(Iterator *it, FilterFunc callback, const void *data)
 {
-    bool ok;
+    bool any;
     void *value;
 
     assert(NULL != it);
 
-    for (ok = false, iterator_first(it); !ok && iterator_is_valid(it, NULL, &value); iterator_next(it)) {
-        ok = callback(value, data);
+    for (any = false, iterator_first(it); !any && iterator_is_valid(it, NULL, &value); iterator_next(it)) {
+        any = callback(value, data);
     }
 
-    return ok;
+    return any;
 }
 
-bool iterator_all(Iterator *it, FilterFunc callback, void *data)
+/**
+ * TODO
+ *
+ * @param it TODO
+ * @param callback TODO
+ * @param data TODO
+ *
+ * @return TODO
+ **/
+bool iterator_all(Iterator *it, FilterFunc callback, const void *data)
 {
-    bool ok;
+    bool all;
     void *value;
 
     assert(NULL != it);
 
-    for (ok = true, iterator_first(it); ok && iterator_is_valid(it, NULL, &value); iterator_next(it)) {
-        ok &= callback(value, data);
+    for (all = true, iterator_first(it); all && iterator_is_valid(it, NULL, &value); iterator_next(it)) {
+        all &= callback(value, data);
     }
 
-    return ok;
+    return all;
 }
 
+/**
+ * TODO
+ **/
 bool iterator_at(Iterator *it, int index, void **data)
 {
     int i;
@@ -531,6 +588,9 @@ bool iterator_at(Iterator *it, int index, void **data)
     return i == index;
 }
 
+/**
+ * TODO
+ **/
 bool iterator_max(Iterator *it, CmpFunc cmp, void **max)
 {
     bool any;
@@ -556,6 +616,9 @@ bool iterator_max(Iterator *it, CmpFunc cmp, void **max)
     return any;
 }
 
+/**
+ * TODO
+ **/
 bool iterator_reduce(Iterator *it, void *acc, bool (*callback)(void *acc, void *value, char **error), char **error)
 {
     bool ok;
@@ -568,4 +631,82 @@ bool iterator_reduce(Iterator *it, void *acc, bool (*callback)(void *acc, void *
     }
 
     return ok;
+}
+
+static bool iterator_sum_callback(void *acc, void *value, char **UNUSED(error))
+{
+    *((int64_t *) acc) += *((int64_t *) value);
+
+    return true;
+}
+
+/**
+ * TODO
+ **/
+int64_t iterator_sum(Iterator *it)
+{
+    int64_t sum;
+
+    assert(NULL != it);
+
+    sum = 0;
+    iterator_reduce(it, &sum, iterator_sum_callback, NULL);
+
+    return sum;
+}
+
+static bool iterator_product_callback(void *acc, void *value, char **UNUSED(error))
+{
+    *((int64_t *) acc) *= *((int64_t *) value);
+
+    return true;
+}
+
+/**
+ * TODO
+ **/
+int64_t iterator_product(Iterator *it)
+{
+    int64_t product;
+
+    assert(NULL != it);
+
+    product = 1;
+    iterator_reduce(it, &product, iterator_product_callback, NULL);
+
+    return product;
+}
+
+/* ========== collectable ========== */
+
+/**
+ * TODO
+ **/
+void collectable_init(Collectable *collectable, void *collection, collectable_into_t into)
+{
+    assert(NULL != collectable);
+    assert(NULL != collection);
+    assert(NULL != into);
+
+    collectable->collection = collection;
+    collectable->into = into;
+}
+
+
+static bool iterator_into_callback(void *acc, void *value, char **UNUSED(error))
+{
+    Collectable *collectable;
+
+    collectable = (Collectable *) acc;
+    collectable->into(collectable->collection, NULL/*TODO: key?*/, value);
+
+    return true;
+}
+
+/**
+ * TODO
+ **/
+bool iterator_into(Iterator *it, Collectable *collectable)
+{
+    return iterator_reduce(it, collectable, iterator_into_callback, NULL);
 }

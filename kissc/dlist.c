@@ -496,6 +496,9 @@ static void dlist_iterator_previous(const void *UNUSED(collection), void **state
  **/
 void dlist_to_iterator(Iterator *it, DList *list)
 {
+    assert(NULL != it);
+    assert(NULL != list);
+
     iterator_init(
         it, list, NULL,
         dlist_iterator_first, dlist_iterator_last,
@@ -505,5 +508,23 @@ void dlist_to_iterator(Iterator *it, DList *list)
         NULL,
         (iterator_count_t) dlist_length, NULL
     );
+}
+
+static void dlist_collectable_into(void *collection, void *UNUSED(key), void *value)
+{
+    assert(NULL != collection);
+
+    dlist_append(((DList *) collection), value, NULL);
+}
+
+/**
+ * TODO
+ **/
+void dlist_to_collectable(Collectable *collectable, DList *list)
+{
+    assert(NULL != collectable);
+    assert(NULL != list);
+
+    collectable_init(collectable, list, dlist_collectable_into);
 }
 #endif /* !WITHOUT_ITERATOR */

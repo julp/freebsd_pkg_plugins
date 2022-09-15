@@ -128,6 +128,16 @@ static int int_cmp_min(const void *a, const void *b)
     return (*(const int */***/) b) - (*(const int */***/) a);
 }
 
+static bool is_palindrome(const char *word)
+{
+    const char *s, *e;
+
+    for (s = word, e = word + strlen(word) - 1; s < e && *s == *e; s++, e--)
+        ;
+
+    return *s == *e;
+}
+
 static bool purge_snapshots(const retention_t *retention, char **error)
 {
     bool ok;
@@ -164,8 +174,8 @@ static bool purge_snapshots(const retention_t *retention, char **error)
     dlist_clear(&l);
     {
         Iterator it;
-        int sum, product, *minmax;
-        int numbers[] = {1, 2, 3, 4, 5, 6};
+        int64_t sum, product, *minmax;
+        int64_t numbers[] = {1, 2, 3, 4, 5, 6};
 
         array_to_iterator(&it, numbers, sizeof(numbers[0]), ARRAY_SIZE(numbers));
         //
@@ -173,17 +183,41 @@ static bool purge_snapshots(const retention_t *retention, char **error)
         //
         sum = 0;
         iterator_reduce(&it, &sum, add, NULL);
-        debug("SUM = %d", sum);
+        debug("SUM = %" PRIi64, sum);
+        debug("SUM = %" PRIi64, iterator_sum(&it));
         //
         product = 1;
         iterator_reduce(&it, &product, mul, NULL);
-        debug("PRODUCT = %d", product);
+        debug("PRODUCT = %" PRIi64, product);
+        debug("PRODUCT = %" PRIi64, iterator_product(&it));
         //
         iterator_max(&it, int_cmp_max, (void **) &minmax);
-        debug("MAX = %d", *minmax);
+        debug("MAX = %" PRIi64, *minmax);
         //
         iterator_max(&it, int_cmp_min, (void **) &minmax);
-        debug("MIN = %d", *minmax);
+        debug("MIN = %" PRIi64, *minmax);
+        //
+        {
+            int *i;
+            DList l;
+            Iterator it2;
+            Collectable c;
+
+            dlist_init(&l, NULL, NULL);
+            dlist_to_collectable(&c, &l);
+            iterator_into(&it, &c);
+            dlist_to_iterator(&it2, &l);
+            for (iterator_first(&it2); iterator_is_valid(&it2, NULL, &i); iterator_next(&it2)) {
+                debug("[COLLECTABLE] %d", *i);
+            }
+            iterator_close(&it2);
+            dlist_clear(&l);
+        }
+        debug("'radar' = %d", is_palindrome("radar"));
+        debug("'robert' = %d", is_palindrome("robert"));
+        debug("'' = %d", is_palindrome(""));
+        debug("'elle' = %d", is_palindrome("elle"));
+        iterator_close(&it);
     }
 
     return ok;

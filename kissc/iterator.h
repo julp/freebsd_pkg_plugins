@@ -30,6 +30,21 @@ struct _Iterator {
     iterator_member_t member;
 };
 
+/* <TEST> */
+typedef struct _Collectable Collectable;
+
+typedef void (*collectable_into_t)(void *, void *, void *); // TODO: return bool + char **error ?
+// typedef void (*collectable_close_t)(void *);
+
+struct _Collectable {
+    void *collection;
+    collectable_into_t into;
+};
+
+void collectable_init(Collectable *, void *, collectable_into_t);
+bool iterator_into(Iterator *, Collectable *);
+/* </TEST> */
+
 #define iterator_is_valid(it, k, v) \
     _iterator_is_valid(it, (void **) k, (void **) v)
 
@@ -61,5 +76,12 @@ void null_sentineled_field_terminated_array_to_iterator(Iterator *, void *, size
 bool iterator_empty(Iterator *);
 size_t iterator_count(Iterator *);
 
+typedef bool (*FilterFunc)(const void *, const void *);
+
+bool iterator_any(Iterator *, FilterFunc, const void *);
+bool iterator_all(Iterator *, FilterFunc, const void *);
+bool iterator_at(Iterator *, int, void **);
 bool iterator_max(Iterator *, CmpFunc, void **);
 bool iterator_reduce(Iterator *, void *, bool (*)(void *, void *, char **), char **);
+int64_t iterator_sum(Iterator *);
+int64_t iterator_product(Iterator *);

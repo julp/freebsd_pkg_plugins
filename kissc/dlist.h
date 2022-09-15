@@ -46,4 +46,5 @@ void dlist_sort(DList *, CmpFunc);
 # include "iterator.h"
 
 void dlist_to_iterator(Iterator *, DList *);
+void dlist_to_collectable(Collectable *, DList *);
 #endif /* !WITHOUT_ITERATOR */
