@@ -26,6 +26,7 @@ static int my_atoi(const YYCTYPE *string, const YYCTYPE * const string_end)
 
     status = strntoint32_t((const char *) string, (const char * const) string_end, (char **) &end, 10, NULL, NULL, &val);
     assert(PARSE_NUM_NO_ERR == status && end == string_end);
+    (void) status; // quiet warning variable 'status' set but not used when assert is turned off
 
     return (int) val;
 }

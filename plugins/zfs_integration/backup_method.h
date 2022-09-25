@@ -22,5 +22,5 @@ typedef struct {
     bool (*snapshot)(paths_to_check_t *ptc, const char *snapshot, const char *hook, void *data, char **error);
     bool (*list)(paths_to_check_t *ptc, void *data, DList *l, char **error);
     bool (*rollback_to)(const snapshot_t *snap, void *data, bool temporary, char **error);
-    bool (*destroy)(snapshot_t *snap, void *data, bool recursive, char **error);
+    bool (*destroy)(snapshot_t *snap, void *data, char **error);
 } backup_method_t;

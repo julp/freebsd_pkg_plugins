@@ -269,7 +269,7 @@ static bool be_rollback_to(const snapshot_t *snap, void *data, bool temporary, c
     return ok;
 }
 
-static bool be_destroy_snapshot(snapshot_t *snap, void *data, bool UNUSED(recursive), char **error)
+static bool be_destroy_snapshot(snapshot_t *snap, void *data, char **error)
 {
     bool ok;
 

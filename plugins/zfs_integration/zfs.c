@@ -679,11 +679,11 @@ static int snaphosts_iter_callback_callback(zfs_handle_t *fh, struct internal_sn
 
     snapshot = uzfs_wrap(fh, UZFS_TYPE_SNAPSHOT);
     ok = isicdt->callback(snapshot, isicdt->data, isicdt->error);
-    uzfs_close(&snapshot);
 
     return ok ? 0 : 1;
 }
 
+// NOTE: callback is responsible to call uzfs_close on its first argument at some point
 bool uzfs_iter_snapshots(uzfs_ptr_t *fs, bool (*callback)(uzfs_ptr_t *, void *, char **), void *data, char **error)
 {
     int ret;

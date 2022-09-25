@@ -262,12 +262,11 @@ static bool snaphosts_iter_callback_build_array(uzfs_ptr_t *fs, void *data, char
     return ok;
 }
 
-static bool raw_zfs_list(paths_to_check_t *ptc, void *data, DList *l, char **error)
+static bool raw_zfs_list(paths_to_check_t *ptc, void *UNUSED(data), DList *l, char **error)
 {
     bool ok;
 
     assert(NULL != ptc);
-    assert(NULL != data);
     assert(NULL != l);
 
     ok = false;
@@ -287,7 +286,7 @@ static bool raw_zfs_list(paths_to_check_t *ptc, void *data, DList *l, char **err
         for (ok = true, iterator_first(&it); ok && iterator_is_valid(&it, NULL, &fs); iterator_next(&it)) {
             DList *snapshots;
 
-            if (!(ok &= NULL != (snapshots = dlist_new(snapshot_copy, snapshot_destroy, error)))) {
+            if (!(ok &= (NULL != (snapshots = dlist_new(snapshot_copy, snapshot_destroy, error))))) {
                 break;
             }
             if (!(ok &= dlist_append(l, snapshots, error))) {
@@ -322,7 +321,7 @@ static bool raw_zfs_rollback_to(const snapshot_t *snap, void *UNUSED(data), bool
     return ok;
 }
 
-static bool raw_zfs_destroy(snapshot_t *snap, void *UNUSED(data), bool UNUSED(recursive), char **error)
+static bool raw_zfs_destroy(snapshot_t *snap, void *UNUSED(data), char **error)
 {
     bool ok;
 

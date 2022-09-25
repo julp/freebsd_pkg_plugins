@@ -20,7 +20,7 @@ typedef struct {
 
 int snapshot_compare_by_creation_date_desc(const void *, const void *);
 void snapshot_destroy(void *);
-void *snapshot_copy(void *);
+void *snapshot_copy(const void *);
 
 #ifdef DEBUG
 void snapshot_print(snapshot_t *);

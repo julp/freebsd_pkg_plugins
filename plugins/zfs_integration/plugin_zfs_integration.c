@@ -104,121 +104,67 @@ static void pkg_zint_usage(void)
     fprintf(stderr, "usage: pkg %s [-%s] rollback\n", NAME, pkg_zint_optstr);
 }
 
-static bool add(void *acc, void *value, char **UNUSED(error))
-{
-    *((int *) acc) += *((int *) value);
-
-    return true;
-}
-
-static bool mul(void *acc, void *value, char **UNUSED(error))
-{
-    *((int *) acc) *= *((int *) value);
-
-    return true;
-}
-
-static int int_cmp_max(const void *a, const void *b)
-{
-    return (*(const int */***/) a) - (*(const int */***/) b);
-}
-
-static int int_cmp_min(const void *a, const void *b)
-{
-    return (*(const int */***/) b) - (*(const int */***/) a);
-}
-
-static bool is_palindrome(const char *word)
-{
-    const char *s, *e;
-
-    for (s = word, e = word + strlen(word) - 1; s < e && *s == *e; s++, e--)
-        ;
-
-    return *s == *e;
-}
-
-static bool purge_snapshots(const retention_t *retention, char **error)
+static bool purge_snapshots(const retention_t *retention, uint64_t limit, char **error)
 {
     bool ok;
+    void *fcd;
     DList l; // snapshots per filesystem
 
     assert(NULL != method); // to make sure purge_snapshots is not called prior to method have been set
 
     ok = false;
-    dlist_init(&l, NULL, (DtorFunc) dlist_clear);
+    fcd = NULL;
+    dlist_init(&l, NULL, (DtorFunc) dlist_destroy);
     do {
         DList *l2; // snapshots (on a given filesystem)
         Iterator it;
 
+        if (NULL == (fcd = retention_filter_callback_data_create(retention, limit, error))) {
+            break;
+        }
         if (!method->list(ptc, method_data, &l, error)) {
             break;
         }
         dlist_to_iterator(&it, &l);
         for (iterator_first(&it); iterator_is_valid(&it, NULL, &l2); iterator_next(&it)) {
+#ifdef DEBUG
             int i;
+#endif /* DEBUG */
             Iterator it2;
             snapshot_t *snap;
 
-            i = 1;
-            // TODO: appliquer rétention (fonction de comparaison appropriée puis suppression de ceux qui ne sont pas à conserver)
+            retention_filter_callback_data_reset(fcd);
             dlist_sort(l2, snapshot_compare_by_creation_date_desc);
             dlist_to_iterator(&it2, l2);
+#ifdef DEBUG
+            i = 1;
+            debug("<snapshots found (created by zint)>");
             for (iterator_first(&it2); iterator_is_valid(&it2, NULL, &snap); iterator_next(&it2)) {
                 debug("%d. %s was created by zint version %" PRIu64 " for '%s' (%d)", i++, snap->name, snap->version, hook_to_name(snap->hook), snap->hook);
             }
+            debug("</snapshots found (created by zint)>");
+            i = 1;
+#endif /* DEBUG */
+            iterator_reject(&it2, retention_filter_callback, fcd);
+#ifdef DEBUG
+            debug("<to be deleted (doesn't match retention)>");
+            for (iterator_last(&it2); iterator_is_valid(&it2, NULL, &snap); iterator_previous(&it2)) {
+                debug("%d. %s was created by zint version %" PRIu64 " for '%s' (%d)", i++, snap->name, snap->version, hook_to_name(snap->hook), snap->hook);
+            }
+            debug("</to be deleted (doesn't match retention)>");
+#else
+            for (ok = true, iterator_last(&it2); ok && iterator_is_valid(&it2, NULL, &snap); iterator_previous(&it2)) {
+                ok &= method->destroy(snap, method_data, error);
+            }
+#endif /* DEBUG */
             iterator_close(&it2);
         }
         iterator_close(&it);
     } while (false);
-    dlist_clear(&l);
-    {
-        Iterator it;
-        int64_t sum, product, *minmax;
-        int64_t numbers[] = {1, 2, 3, 4, 5, 6};
-
-        array_to_iterator(&it, numbers, sizeof(numbers[0]), ARRAY_SIZE(numbers));
-        //
-        debug("COUNT = %zu", iterator_count(&it));
-        //
-        sum = 0;
-        iterator_reduce(&it, &sum, add, NULL);
-        debug("SUM = %" PRIi64, sum);
-        debug("SUM = %" PRIi64, iterator_sum(&it));
-        //
-        product = 1;
-        iterator_reduce(&it, &product, mul, NULL);
-        debug("PRODUCT = %" PRIi64, product);
-        debug("PRODUCT = %" PRIi64, iterator_product(&it));
-        //
-        iterator_max(&it, int_cmp_max, (void **) &minmax);
-        debug("MAX = %" PRIi64, *minmax);
-        //
-        iterator_max(&it, int_cmp_min, (void **) &minmax);
-        debug("MIN = %" PRIi64, *minmax);
-        //
-        {
-            int *i;
-            DList l;
-            Iterator it2;
-            Collectable c;
-
-            dlist_init(&l, NULL, NULL);
-            dlist_to_collectable(&c, &l);
-            iterator_into(&it, &c);
-            dlist_to_iterator(&it2, &l);
-            for (iterator_first(&it2); iterator_is_valid(&it2, NULL, &i); iterator_next(&it2)) {
-                debug("[COLLECTABLE] %d", *i);
-            }
-            iterator_close(&it2);
-            dlist_clear(&l);
-        }
-        debug("'radar' = %d", is_palindrome("radar"));
-        debug("'robert' = %d", is_palindrome("robert"));
-        debug("'' = %d", is_palindrome(""));
-        debug("'elle' = %d", is_palindrome("elle"));
-        iterator_close(&it);
+    if (NULL != fcd) {
+        retention_filter_callback_data_destroy(fcd);
     }
+    dlist_clear(&l);
 
     return ok;
 }
@@ -471,7 +417,7 @@ int pkg_plugin_init(struct pkg_plugin *p)
         }
         assert(NULL != method);
         debug("DEBUG: using method '%s'", method->name);
-        purge_snapshots(retention, &error);
+        purge_snapshots(retention, limit, &error);
     } while (false);
     if (EPKG_FATAL == status && NULL != error) {
         pkg_plugin_error(self, "%s", error);

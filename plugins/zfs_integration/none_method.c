@@ -33,7 +33,7 @@ static bool none_rollback_to(const snapshot_t *UNUSED(snap), void *UNUSED(data),
     return true;
 }
 
-static bool none_destroy(snapshot_t *UNUSED(snap), void *UNUSED(data), bool UNUSED(recursive), char **UNUSED(error))
+static bool none_destroy(snapshot_t *UNUSED(snap), void *UNUSED(data), char **UNUSED(error))
 {
     return true;
 }

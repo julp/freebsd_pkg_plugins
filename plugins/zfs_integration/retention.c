@@ -7,6 +7,7 @@
 #include "common.h"
 #include "error.h"
 #include "retention.h"
+#include "snapshot.h"
 
 #define R(name) \
     RETENTION_ ## name
@@ -18,6 +19,65 @@ typedef enum {
     R(BY_CREATION),
 } retention_type_t;
 
+struct retention_t {
+    const char *name;
+    bool (*callback)(uint64_t, uint64_t, uint64_t *);
+};
+
+typedef struct {
+    const retention_t *retention;
+    uint64_t limit;
+    uint64_t state;
+} filter_callback_data_t;
+
+bool retention_filter_callback(const void *data, const void *user_data/*, char **error*/)
+{
+    snapshot_t *snap;
+    filter_callback_data_t *fcd;
+
+    assert(NULL != data);
+    assert(NULL != user_data);
+
+    snap = (snapshot_t *) data;
+    fcd = (filter_callback_data_t *) user_data;
+
+    return fcd->retention->callback(snap->creation, fcd->limit, &fcd->state);
+}
+
+void *retention_filter_callback_data_create(const retention_t *retention, uint64_t limit, char **error)
+{
+    filter_callback_data_t *fcd;
+
+    if (NULL == (fcd = malloc(sizeof(*fcd)))) {
+        set_malloc_error(error, sizeof(*fcd));
+    } else {
+        fcd->retention = retention;
+        fcd->limit = limit;
+        fcd->state = 0;
+    }
+
+    return (void *) fcd;
+}
+
+void retention_filter_callback_data_reset(void *data)
+{
+    filter_callback_data_t *fcd;
+
+    assert(NULL != data);
+
+    fcd = (filter_callback_data_t *) data;
+    fcd->state = 0;
+}
+
+void retention_filter_callback_data_destroy(void *data)
+{
+    // filter_callback_data_t *fcd;
+
+    assert(NULL != data);
+    // fcd = (filter_callback_data_t *) data;
+    free(data);
+}
+
 static bool retention_disabled_keep(uint64_t UNUSED(value), uint64_t UNUSED(limit), uint64_t *UNUSED(state))
 {
     return true;
@@ -27,7 +87,8 @@ static bool retention_by_count_keep(uint64_t UNUSED(value), uint64_t limit, uint
 {
     bool keep;
 
-    keep = *state <= limit;
+    // NOTE: <, not <=, because limit start at 0, not 1
+    keep = *state < limit;
     if (keep) {
         ++*state;
     }
@@ -37,13 +98,9 @@ static bool retention_by_count_keep(uint64_t UNUSED(value), uint64_t limit, uint
 
 static bool retention_by_creation_keep(uint64_t value, uint64_t limit, uint64_t *UNUSED(state))
 {
+    // debug("%" PRIu64 " >= %" PRIu64 " = %d", value, limit, value >= limit);
     return value >= limit;
 }
-
-struct retention_t {
-    const char *name;
-    bool (*callback)(uint64_t, uint64_t, uint64_t *);
-};
 
 static const retention_t kinds[] = {
     [ R(DISABLED) ] = {"disabled: no deletion", retention_disabled_keep},
@@ -96,6 +153,11 @@ const retention_t *retention_parse(const pkg_object *object, uint64_t *limit, ch
         pkg_object_t object_type;
         retention_type_t retention_type;
 
+        /**
+         * TODO: it seems, by `pkg_plugin_conf_add(p, PKG_STRING, CFG_RETENTION, "");` (in plugin_zfs_integration.c), pkg, in configuration file, expect a string.
+         * For example, `RETENTION = 10;` won't work, it has to be `RETENTION = "10";`.
+         * So, I guess, type checking is totaly useless, only `} else if (PKG_STRING == object_type) {` will always be true/executed.
+         */
         retention_type = R(DISABLED);
         object_type = pkg_object_type(object);
         if (PKG_NULL == object_type) {

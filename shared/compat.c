@@ -2,6 +2,8 @@
 #include <string.h>
 #include <pkg.h>
 
+// #include "common.h"
+
 /**
  * ugly workaround to the removal of the function pkg_object_find by pkg 1.18
  *
@@ -22,6 +24,7 @@ const pkg_object *pkg_object_find(const pkg_object *object, const char *key)
         const char *k;
 
         k = pkg_object_key(v);
+        // debug(">%s< = >%s<", k, pkg_object_dump(v));
         if (0 == strcmp(key, k)) { // TODO: keys were insensitive so strcasecmp would make more sense?
             match = v;
         }

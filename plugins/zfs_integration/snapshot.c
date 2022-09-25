@@ -28,7 +28,7 @@ int snapshot_compare_by_creation_date_asc(snapshot_t *a, snapshot_t *b)
 }
 #endif
 
-void *snapshot_copy(void *snap) {
+void *snapshot_copy(const void *snap) {
     snapshot_t *copy;
 
     if (NULL != (copy = malloc(sizeof(*copy)))) {
@@ -48,7 +48,7 @@ void snapshot_destroy(void *data)
     if (NULL != snap->fs) {
         uzfs_close(&snap->fs);
     }
-//     free(snap);
+    free(snap);
 }
 
 #ifdef DEBUG

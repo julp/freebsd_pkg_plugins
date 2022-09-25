@@ -336,7 +336,7 @@ void dlist_remove_link(DList *list, DListElement *element)
     if (element == list->head) {
         list->head = list->head->next;
         if (NULL != list->head) {
-            list->head->prev= NULL;
+            list->head->prev = NULL;
         }
     }
     if (element == list->tail) {
@@ -344,6 +344,9 @@ void dlist_remove_link(DList *list, DListElement *element)
         if (NULL != list->tail) {
             list->tail->next = NULL;
         }
+    }
+    if (NULL != list->dtor) {
+        list->dtor(element->data);
     }
     free(element);
     --list->length;
@@ -484,6 +487,21 @@ static void dlist_iterator_previous(const void *UNUSED(collection), void **state
     *state = el->prev;
 }
 
+static void dlist_iterator_delete(const void *collection, void **state)
+{
+    DList *list;
+    DListElement *el;
+
+    assert(NULL != collection);
+    assert(NULL != state);
+
+    list = (DList *) collection;
+    el = (DListElement *) *state;
+    // TODO: handle backward traversing?
+    *state = NULL == el->prev ? list->head : el->prev;
+    dlist_remove_link(list, el);
+}
+
 /**
  * Initialize an *Iterator* to loop, in both directions, on the elements
  * of a double linked list.
@@ -506,7 +524,7 @@ void dlist_to_iterator(Iterator *it, DList *list)
         dlist_iterator_next, dlist_iterator_previous,
         dlist_iterator_is_valid,
         NULL,
-        (iterator_count_t) dlist_length, NULL
+        (iterator_count_t) dlist_length, NULL, dlist_iterator_delete
     );
 }
 

@@ -13,6 +13,7 @@ typedef void (*iterator_close_t)(void *);
 
 typedef size_t (*iterator_count_t)(const void *);
 typedef bool (*iterator_member_t)(const void *, void *);
+typedef void (*iterator_delete_current_t)(const void *, void **);
 
 typedef struct _Iterator Iterator;
 
@@ -28,6 +29,7 @@ struct _Iterator {
     iterator_close_t close;
     iterator_count_t count;
     iterator_member_t member;
+    iterator_delete_current_t delete;
 };
 
 /* <TEST> */
@@ -60,7 +62,8 @@ void iterator_init(
     iterator_is_valid_t,
     iterator_close_t,
     iterator_count_t,
-    iterator_member_t
+    iterator_member_t,
+    iterator_delete_current_t
 );
 void iterator_first(Iterator *);
 void iterator_last(Iterator *);
@@ -85,3 +88,5 @@ bool iterator_max(Iterator *, CmpFunc, void **);
 bool iterator_reduce(Iterator *, void *, bool (*)(void *, void *, char **), char **);
 int64_t iterator_sum(Iterator *);
 int64_t iterator_product(Iterator *);
+void iterator_filter(Iterator *, FilterFunc, const void *);
+void iterator_reject(Iterator *, FilterFunc, const void *);

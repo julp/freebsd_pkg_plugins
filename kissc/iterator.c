@@ -69,6 +69,7 @@ static const Iterator NULL_ITERATOR;
  * @param count if you can provide a callback to get the number of elements in *collection* without
  * traversing it set it there. If not, set it to `NULL` to use the default (and slow) algorithm.
  * @param member TODO
+ * @param delete TODO
  */
 void iterator_init(
     Iterator *it,
@@ -82,7 +83,8 @@ void iterator_init(
     iterator_is_valid_t valid,
     iterator_close_t close,
     iterator_count_t count,
-    iterator_member_t member
+    iterator_member_t member,
+    iterator_delete_current_t delete
 ) {
     it->state = state;
     it->collection = collection;
@@ -95,6 +97,7 @@ void iterator_init(
     it->close = close;
     it->count = count;
     it->member = member;
+    it->delete = delete;
 }
 
 /**
@@ -181,6 +184,9 @@ bool _iterator_is_valid(Iterator *it, void **key, void **value)
     return valid;
 }
 
+/**
+ * TODO
+ */
 bool iterator_empty(Iterator *it)
 {
     bool empty;
@@ -197,6 +203,9 @@ bool iterator_empty(Iterator *it)
     return empty;
 }
 
+/**
+ * TODO
+ */
 size_t iterator_count(Iterator *it)
 {
     size_t count;
@@ -214,6 +223,18 @@ size_t iterator_count(Iterator *it)
     }
 
     return count;
+}
+
+/**
+ * TODO
+ */
+void iterator_delete_current(Iterator *it)
+{
+    assert(NULL != it);
+
+    if (NULL != it->delete) {
+        it->delete(it->collection, &it->state);
+    }
 }
 
 #define CHAR_P(p) \
@@ -342,7 +363,7 @@ void array_to_iterator(Iterator *it, void *array, size_t element_size, size_t el
         array_iterator_next, array_iterator_prev,
         array_iterator_is_valid,
         free,
-        NULL, NULL
+        NULL, NULL, NULL
     );
 }
 
@@ -402,7 +423,7 @@ void null_terminated_ptr_array_to_iterator(Iterator *it, void **array)
         null_terminated_ptr_array_iterator_next, NULL,
         null_terminated_ptr_array_iterator_is_valid,
         NULL,
-        NULL, NULL
+        NULL, NULL, NULL
     );
 }
 
@@ -490,7 +511,7 @@ void null_sentineled_field_terminated_array_to_iterator(Iterator *it, void *arra
         null_sentineled_field_terminated_array_iterator_next, NULL,
         null_sentineled_field_terminated_array_iterator_is_valid,
         free,
-        NULL, NULL
+        NULL, NULL, NULL
     );
 }
 
@@ -501,8 +522,8 @@ void null_sentineled_field_terminated_array_to_iterator(Iterator *it, void *arra
  *
  * @param it the iterator to traverse (until *callback* returns `true`)
  * @param callback the callback called on each element for comparaison or test
- * @param data a potential user data to transmit to each call to *callback* (if you don't
- * use it set it to `NULL` then ignore this parameter in your callback)
+ * @param user_data a potential user data to transmit to each call to *callback* (if you
+ * don't use it set it to `NULL` then ignore this parameter in your callback)
  *
  * @return `true` if at least one value satisfies *callback* else `false`
  *
@@ -522,7 +543,7 @@ void null_sentineled_field_terminated_array_to_iterator(Iterator *it, void *arra
  *   iterator_close(&it);
  * \endcode
  **/
-bool iterator_any(Iterator *it, FilterFunc callback, const void *data)
+bool iterator_any(Iterator *it, FilterFunc callback, const void *user_data)
 {
     bool any;
     void *value;
@@ -530,7 +551,7 @@ bool iterator_any(Iterator *it, FilterFunc callback, const void *data)
     assert(NULL != it);
 
     for (any = false, iterator_first(it); !any && iterator_is_valid(it, NULL, &value); iterator_next(it)) {
-        any = callback(value, data);
+        any = callback(value, user_data);
     }
 
     return any;
@@ -541,11 +562,11 @@ bool iterator_any(Iterator *it, FilterFunc callback, const void *data)
  *
  * @param it TODO
  * @param callback TODO
- * @param data TODO
+ * @param user_data TODO
  *
  * @return TODO
  **/
-bool iterator_all(Iterator *it, FilterFunc callback, const void *data)
+bool iterator_all(Iterator *it, FilterFunc callback, const void *user_data)
 {
     bool all;
     void *value;
@@ -553,11 +574,44 @@ bool iterator_all(Iterator *it, FilterFunc callback, const void *data)
     assert(NULL != it);
 
     for (all = true, iterator_first(it); all && iterator_is_valid(it, NULL, &value); iterator_next(it)) {
-        all &= callback(value, data);
+        all &= callback(value, user_data);
     }
 
     return all;
 }
+
+#if 0
+typedef void (*ApplyFunc)(void *value, const void *data);
+typedef bool (*ApplyWithErrorFunc)(void *value, const void *user_data, char **error);
+
+/**
+ * TODO
+ **/
+void iterator_each(Iterator *it, ApplyFunc callback, const void *user_data)
+{
+    void *value;
+
+    assert(NULL != it);
+
+    for (iterator_first(it); iterator_is_valid(it, NULL, &value); iterator_next(it)) {
+        callback(value, user_data);
+    }
+}
+
+bool iterator_each_with_error(Iterator *it, ApplyFunc callback, const void *user_data, char **error)
+{
+    bool ok;
+    void *value;
+
+    assert(NULL != it);
+
+    for (ok = true, iterator_first(it); ok && iterator_is_valid(it, NULL, &value); iterator_next(it)) {
+        ok &= callback(value, user_data, error);
+    }
+
+    return ok;
+}
+#endif
 
 /**
  * TODO
@@ -675,6 +729,40 @@ int64_t iterator_product(Iterator *it)
     iterator_reduce(it, &product, iterator_product_callback, NULL);
 
     return product;
+}
+
+/**
+ * TODO
+ **/
+void iterator_filter(Iterator *it, FilterFunc callback, const void *data)
+{
+    void *value;
+
+    assert(NULL != it);
+    assert(NULL != callback);
+
+    for (iterator_first(it); iterator_is_valid(it, NULL, &value); iterator_next(it)) {
+        if (!callback(value, data)) {
+            iterator_delete_current(it);
+        }
+    }
+}
+
+/**
+ * TODO
+ **/
+void iterator_reject(Iterator *it, FilterFunc callback, const void *data)
+{
+    void *value;
+
+    assert(NULL != it);
+    assert(NULL != callback);
+
+    for (iterator_first(it); iterator_is_valid(it, NULL, &value); iterator_next(it)) {
+        if (callback(value, data)) {
+            iterator_delete_current(it);
+        }
+    }
 }
 
 /* ========== collectable ========== */
