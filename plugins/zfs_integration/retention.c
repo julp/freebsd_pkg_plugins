@@ -157,6 +157,12 @@ const retention_t *retention_parse(const pkg_object *object, uint64_t *limit, ch
          * TODO: it seems, by `pkg_plugin_conf_add(p, PKG_STRING, CFG_RETENTION, "");` (in plugin_zfs_integration.c), pkg, in configuration file, expect a string.
          * For example, `RETENTION = 10;` won't work, it has to be `RETENTION = "10";`.
          * So, I guess, type checking is totaly useless, only `} else if (PKG_STRING == object_type) {` will always be true/executed.
+         *
+         * This is the following test in function pkg_plugin_parse (from pkg/libpkg/plugins.c) which "prevents" it:
+         * if (o->type != cur->type) {
+         *   pkg_emit_error("Malformed key %s, ignoring", key);
+         *   continue;
+         * }
          */
         retention_type = R(DISABLED);
         object_type = pkg_object_type(object);
