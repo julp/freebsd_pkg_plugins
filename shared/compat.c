@@ -30,3 +30,26 @@ const pkg_object *pkg_object_find(const pkg_object *object, const char *key)
     return match;
 }
 #endif /* HAVE_PKG_OBJECT_FIND */
+
+void pkg_get_string_or_null(struct pkg *pkg, pkg_attr attr, const char **value)
+{
+    assert(NULL != pkg);
+    assert(NULL != value);
+
+#ifdef pkg_get_string
+    {
+        /**
+          * NOTE: it seems like pkg_get_string doesn't allow NULL only/strictly strings
+          *
+          * Even weirder since e->type = 0 when e->string is NULL and pkg_el_t (which doesn't have any explicit 0 value)
+          * has anything in common with pkg_object_t
+          **/
+        struct pkg_el *e;
+
+        e = pkg_get_element(pkg, attr);
+        *value = e->string;
+    }
+#else
+    pkg_get(pkg, attr, *value);
+#endif /* pkg_get_string */
+}

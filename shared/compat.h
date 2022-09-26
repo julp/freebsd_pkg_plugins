@@ -12,3 +12,5 @@
 #ifndef HAVE_PKG_OBJECT_FIND
 const pkg_object *pkg_object_find(const pkg_object *object, const char *key);
 #endif /* HAVE_PKG_OBJECT_FIND */
+
+void pkg_get_string_or_null(struct pkg *, pkg_attr, const char **);

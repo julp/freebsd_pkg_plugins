@@ -14,6 +14,7 @@ set(
 set(
     VERBOSE_SOURCES
     plugin_verbose.c
+    ${PROJECT_SOURCE_DIR}/shared/compat.c
 )
 
 pkg_plugin(

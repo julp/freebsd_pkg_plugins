@@ -42,6 +42,7 @@ set(
     ${COMMON_SOURCES}
     plugin_history.c
     ${PROJECT_SOURCE_DIR}/shared/os.c
+    ${PROJECT_SOURCE_DIR}/shared/compat.c
     ${PROJECT_SOURCE_DIR}/shared/path_join.c
     ${PROJECT_SOURCE_DIR}/shared/argv.c
     ${PROJECT_SOURCE_DIR}/kissc/stpcpy_sp.c

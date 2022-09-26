@@ -520,7 +520,7 @@ static int handle_hooks(void *data, struct pkgdb *UNUSED(_db))
             pkg_get_string(new_pkg, PKG_NAME, name);
             pkg_get_string(new_pkg, PKG_ORIGIN, origin);
             pkg_get_string(new_pkg, PKG_VERSION, new_version);
-            pkg_get_string(new_pkg, PKG_OLD_VERSION, old_version);
+            pkg_get_string_or_null(new_pkg, PKG_OLD_VERSION, &old_version);
             pkg_get_string(new_pkg, PKG_REPONAME, repo);
             switch (job_type) { // TODO: plutôt considérer solved_type ?
                 case PKG_JOBS_INSTALL:
