@@ -141,6 +141,7 @@ static void unregister_pid(process_monitor_t *pm, pid_t pid, exited_fn_t exited,
     pm->active_children_count--;
     ret = waitpid(pid, &pstat, WNOHANG);
     assert(-1 != ret/* && ECHILD != errno*/);
+    (void) ret; // quiet warning variable 'ret' set but not used when assert is turned off
     if (hashtable_direct_get(&pm->children, pid, &c)) {
         c->exited = true;
         c->status = WEXITSTATUS(pstat);

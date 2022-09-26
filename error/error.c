@@ -25,6 +25,7 @@ void _error_set(char **error, const char *format, ...)
             *error = malloc(size * sizeof(**error));
             chk = vsnprintf(*error, size, format, ap);
             assert(chk >= 0 && chk == len);
+            (void) chk; // quiet warning variable 'chk' set but not used when assert is turned off
             va_end(ap);
         }
     }

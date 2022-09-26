@@ -349,6 +349,7 @@ static void handle_provide(services_db_t *db, rc_d_script_t *script, const char 
     }
     put = dlist_append(scripts, script);
     assert(put);
+    (void) put; // quiet warning variable 'put' set but not used when assert is turned off
 }
 
 static void handle_keyword(services_db_t *db, rc_d_script_t *script, const char *token)
@@ -368,6 +369,7 @@ static void handle_keyword(services_db_t *db, rc_d_script_t *script, const char 
     }
     put = dlist_append(&kw->scripts, script);
     assert(put);
+    (void) put; // quiet warning variable 'put' set but not used when assert is turned off
     dlist_append(&script->keywords, kw);
 }
 
@@ -462,19 +464,22 @@ static package_t *package_retrieve(services_db_t *db, const char *name, char **e
     return pkg;
 }
 
-static bool associate_package_to_script(services_db_t *db, rc_d_script_t *script, package_t *pkg, char **error)
+static bool associate_package_to_script(rc_d_script_t *script, package_t *pkg, char **error)
 {
     bool ok;
 
-    assert(NULL != db);
     assert(NULL != script);
     assert(NULL != pkg);
 
-    ok = dlist_append(&pkg->scripts, script);
-    if (!ok) {
-        set_generic_error(error, "linking package '%s' to script '%s' failed", pkg->name, script->name);
-    }
-    script->package = pkg;
+    ok = false;
+    do {
+        if (!dlist_append(&pkg->scripts, script)) {
+            set_generic_error(error, "linking package '%s' to script '%s' failed", pkg->name, script->name);
+            break;
+        }
+        script->package = pkg;
+        ok = true;
+    } while (false);
 
     return ok;
 }
@@ -516,7 +521,7 @@ static bool pkg_from_rc_d_script(struct pkgdb *pkg_db, services_db_t *db, rc_d_s
             if (NULL == (script_package = package_retrieve(db, pkg_name, error))) {
                 break;
             }
-            if (!associate_package_to_script(db, script, script_package, error)) {
+            if (!associate_package_to_script(script, script_package, error)) {
                 break;
             }
             // IMPORTANT NOTE: from this point do NOT use pkg_name (will not be valid - freed - later), use script->package->name or script_package->name instead
@@ -583,6 +588,7 @@ static rc_d_script_t *register_script(services_db_t *db, const char *name, const
     dlist_init(&script->children, NULL);
     put = hashtable_put(&db->scripts, HT_PUT_ON_DUP_KEY_PRESERVE, script->name, script, NULL);
     assert(put);
+    (void) put; // quiet warning variable 'put' set but not used when assert is turned off
 
     return script;
 }

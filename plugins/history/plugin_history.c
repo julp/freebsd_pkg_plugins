@@ -617,6 +617,7 @@ int pkg_register_cmd_count(void)
 int pkg_register_cmd(int i, const char **name, const char **desc, int (**exec)(int argc, char **argv))
 {
     assert(0 == i);
+    (void) i; // quiet warning variable 'i' set but not used when assert is turned off
 
     *name = NAME;
     *desc = DESCRIPTION;
