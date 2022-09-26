@@ -1,5 +1,5 @@
 PORTNAME=	pkg_history
-PORTVERSION=	0.8.0
+PORTVERSION=	0.8.1
 #PORTREVISION=	1
 CATEGORIES=	ports-mgmt
 
@@ -17,7 +17,7 @@ CMAKE_ARGS=	-DPLUGINS:STRING=history
 USE_GITHUB=	yes
 GH_ACCOUNT=	julp
 GH_PROJECT=	freebsd_pkg_plugins
-GH_TAGNAME=	618fa7b
+GH_TAGNAME=	382b5a8
 
 PLIST_FILES=	lib/pkg/history.so
 
