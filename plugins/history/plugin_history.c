@@ -515,12 +515,26 @@ static int handle_hooks(void *data, struct pkgdb *UNUSED(_db))
         statement_fetch(db, &statements[STMT_CREATE_COMMAND], &error);
         command_id = sqlite_last_insert_id(db);
         while (pkg_jobs_iter(jobs, &iter, &new_pkg, &old_pkg, &solved_type)) {
+#ifdef pkg_get_string
+            struct pkg_el *e;
+#endif /* pkg_get_string */
             const char *name, *origin, *new_version, *old_version, *repo;
 
             pkg_get_string(new_pkg, PKG_NAME, name);
             pkg_get_string(new_pkg, PKG_ORIGIN, origin);
             pkg_get_string(new_pkg, PKG_VERSION, new_version);
-            pkg_get_string(new_pkg, PKG_OLD_VERSION, old_version);
+#ifdef pkg_get_string
+            /**
+             * NOTE: it seems like pkg_get_string doesn't allow NULL only/strictly strings
+             *
+             * Even weirder since e->type = 0 when e->string is NULL and pkg_el_t (which doesn't have any explicit 0 value)
+             * has anything in common with pkg_object_t
+             **/
+            e = pkg_get_element(new_pkg, PKG_OLD_VERSION);
+            old_version = e->string;
+#else
+            pkg_get(new_pkg, PKG_OLD_VERSION, old_version);
+#endif /* pkg_get_string */
             pkg_get_string(new_pkg, PKG_REPONAME, repo);
             switch (job_type) { // TODO: plutôt considérer solved_type ?
                 case PKG_JOBS_INSTALL:
