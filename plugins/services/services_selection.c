@@ -110,7 +110,7 @@ static void handle_enabled_exited(pid_t UNUSED(pid), int status, void *acc, void
     enabled = (DList *) acc;
     sd = (service_data_t *) data;
     if (EXIT_SUCCESS == status) {
-        dlist_append(enabled, sd);
+        dlist_append(enabled, sd, NULL);
     }
 }
 
@@ -180,7 +180,7 @@ services_result_t *services_selection_handle(services_selection_t *ss, char **er
             }
         }
         iterator_close(&it);
-        dlist_init(&enabled, NULL);
+        dlist_init(&enabled, NULL, NULL);
         process_monitor_await(pm, SERVICE_TIMEOUT, handle_enabled_exited, &enabled, handle_enabled_hanging, sr, error);
         process_monitor_clear(pm);
         // second step

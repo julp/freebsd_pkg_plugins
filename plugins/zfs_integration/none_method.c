@@ -7,6 +7,8 @@
 
 static bm_code_t none_suitable(paths_to_check_t *UNUSED(ptc), void **data, char **UNUSED(error))
 {
+    assert(NULL != data);
+
     *data = NULL;
 
     return BM_OK;
@@ -19,11 +21,21 @@ static bool none_take_snapshot(paths_to_check_t *UNUSED(ptc), const char *UNUSED
     return true;
 }
 
-static bool none_rollback(paths_to_check_t *UNUSED(ptc), void *UNUSED(data), bool UNUSED(temporary), char **error)
+static bool none_list(paths_to_check_t *UNUSED(ptc), void *UNUSED(data), DList *UNUSED(l), char **UNUSED(error))
+{
+    return true;
+}
+
+static bool none_rollback_to(const snapshot_t *UNUSED(snap), void *UNUSED(data), bool UNUSED(temporary), char **error)
 {
     set_generic_error(error, "a rollback is not possible on a non-ZFS system");
 
-    return false;
+    return true;
+}
+
+static bool none_destroy(snapshot_t *UNUSED(snap), void *UNUSED(data), char **UNUSED(error))
+{
+    return true;
 }
 
 static void none_fini(void *UNUSED(data))
@@ -36,5 +48,7 @@ const backup_method_t none_method = {
     none_suitable,
     none_fini,
     none_take_snapshot,
-    none_rollback,
+    none_list,
+    none_rollback_to,
+    none_destroy,
 };

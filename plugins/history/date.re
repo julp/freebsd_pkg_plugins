@@ -235,16 +235,16 @@ static bool set_date(struct tm *tm, int *y, int *m, int *d, int *n1, int *n2, in
     DList unidentified;
 
     ok = false;
-    dlist_init(&unidentified, NULL);
+    dlist_init(&unidentified, NULL, NULL);
     do {
         if (NULL != n1) {
-            dlist_append(&unidentified, n1);
+            dlist_append(&unidentified, n1, error);
         }
         if (NULL != n2) {
-            dlist_append(&unidentified, n2);
+            dlist_append(&unidentified, n2, error);
         }
         if (NULL != n3) {
-            dlist_append(&unidentified, n3);
+            dlist_append(&unidentified, n3, error);
         }
         if (NULL == y) {
             if (NULL == (y = guess_year(&unidentified))) {

@@ -294,7 +294,8 @@ void statement_to_iterator(Iterator *it, sqlite_statement_t *stmt, ...)
         statement_iterator_current,
         statement_iterator_next, NULL,
         statement_iterator_is_valid,
-        statement_iterator_close
+        statement_iterator_close,
+        NULL, NULL, NULL
     );
 }
 

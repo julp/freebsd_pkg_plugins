@@ -39,7 +39,7 @@ void services_result_add(services_result_t *sr, const char *name, service_action
     assert(NULL != name);
 
     if (SERVICE_ACTION_NONE != action) {
-        dlist_append(&sr->lists[action - 1][status], (void *) name);
+        dlist_append(&sr->lists[action - 1][status], (void *) name, NULL);
     }
 }
 
@@ -62,8 +62,8 @@ services_result_t *services_result_create(char **error)
         size_t i;
 
         for (i = 0; i < SERVICES_RESULT_COUNT; i++) {
-            dlist_init(&sr->lists[SERVICE_ACTION_STOP - 1][i], NULL);
-            dlist_init(&sr->lists[SERVICE_ACTION_RESTART - 1][i], NULL);
+            dlist_init(&sr->lists[SERVICE_ACTION_STOP - 1][i], NULL, NULL);
+            dlist_init(&sr->lists[SERVICE_ACTION_RESTART - 1][i], NULL, NULL);
         }
     }
 

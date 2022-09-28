@@ -27,6 +27,9 @@ pkg_pre_upgrade_2021-09-14_16:21:24 -      -          41.3M 2021-09-14 16:21
 Note: keys are case sensitive, they have to be uppercased in ```\`pkg config PLUGINS_CONF_DIR\`/zint.conf```
 
 * `FORCE` (boolean, default: `false`): when `false`, do not create a BE/snapshot if the `pkg` command does not actually imply any change. Set it to `true` to create a BE/snapshot anyway, you might want to turn it on if you run more often `pkg` than you create BE/snapshot
+* `RETENTION` (default: disabled):
+  * with an integer, for example `RETENTION = "7";`, only keep the 7 latest BE/snapshots
+  * with a string, for example `RETENTION = "2 weeks";` delete the BE/snapshots older than 2 weeks
 * `ON` (default: `[ pre_upgrade, pre_autoremove ]`), an array of events from the list below :
   + `pre_install`: to create a BE/snapshot right before `pkg install`
   + `post_install`: right after `pkg install`
@@ -44,4 +47,15 @@ ON: {
     pre_upgrade: "zint_upgrade_%Y-%m-%d-%H:%i:%s",
     pre_autoremove: "zint_autoremove_%Y-%m-%d-%H:%i:%s",
 }
+```
+
+## Important note
+
+ports-mgmt/pkg sticks to the type of the default value registered by `pkg_plugin_conf_add` so `ON` has to be an array (it can't be an object) and `RETENTION` has to be a string (not an integer). To leverage this limitation, recompile `pkg` after copying the patch included in this directory to /usr/ports/ports-mgmt/pkg/files
+
+```
+cp patch-libpkg_plugins.c /usr/ports/ports-mgmt/pkg/files
+make -C /usr/ports/ports-mgmt/pkg deinstall
+make -C /usr/ports/ports-mgmt/pkg distclean
+make -C /usr/ports/ports-mgmt/pkg install
 ```

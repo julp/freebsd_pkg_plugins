@@ -30,45 +30,77 @@
 #include "stpcpy_sp.h"
 
 #if __FreeBSD_version < 1202000
+# define zfs_iter_snapshots(zhp, callback, data, min_txg, max_txg) \
+    zfs_iter_snapshots(zhp, callback, data)
+
 # define zfs_iter_snapshots_sorted(zhp, callback, data, min_txg, max_txg) \
     zfs_iter_snapshots_sorted(zhp, callback, data)
 #endif /* FreeBSD < 12.2 */
 
 // NOTE: functions are prefixed of a 'u' for "userland" to avoid clashes with actual (lib)zfs functions
 
+typedef void (*uzfs_close_callback_t)(void *ptr);
+typedef const char *(*uzfs_get_name_callback_t)(void *ptr);
+typedef void *(*uzfs_from_name_callback_t)(libzfs_handle_t *lh, const char *name, int types);
+typedef const char *(*uzfs_to_pool_name_callback_t)(void *ptr);
+typedef libzfs_handle_t *(*uzfs_to_libzfs_handle_callback_t)(void *ptr);
+typedef bool (*uzfs_get_prop_callback_t)(void *ptr, const char *name, char *value, size_t value_size);
+typedef int (*uzfs_set_prop_callback_t)(void *ptr, const char *name, const char *value);
+
+#if 0
+uint64_t zpool_get_prop_int(zpool_handle_t *, zpool_prop_t, zprop_source_t *);
+int zfs_prop_get_numeric(zfs_handle_t *, zfs_prop_t, uint64_t *, zprop_source_t *, char *, size_t);
+#endif
+
+typedef struct {
+    zfs_type_t type;
+    uzfs_close_callback_t close;
+    uzfs_get_name_callback_t get_name;
+    uzfs_from_name_callback_t from_name;
+    uzfs_to_pool_name_callback_t to_pool_name;
+    uzfs_to_libzfs_handle_callback_t to_libzfs_handle;
+    uzfs_get_prop_callback_t get_prop;
+    uzfs_set_prop_callback_t set_prop;
+} zfs_klass_t;
+
 struct uzfs_lib_t {
     libzfs_handle_t *lh;
 };
 
-struct uzfs_pool_t {
-    zpool_handle_t *ph;
+struct uzfs_ptr_t {
+    union {
+        void *ptr;
+        zfs_handle_t *fh;
+        zpool_handle_t *ph;
+    };
+    const zfs_klass_t *klass;
 };
 
-struct uzfs_fs_t {
-    zfs_handle_t *fh;
-};
+/* ========== assertions ========== */
 
-static inline libzfs_handle_t *lh_from_fs(uzfs_fs_t *fs)
-{
-    return zfs_get_handle(fs->fh);
-}
+#define assert_valid_uzfs_type_t(/*uzfs_type_t*/ type) \
+    do { \
+        assert(type >= UZFS_TYPE_FIRST && type <= UZFS_TYPE_LAST); \
+    } while (false);
 
-#if 0 /* unused */
-static inline libzfs_handle_t *lh_from_pool(uzfs_pool_t *pool)
-{
-    return zpool_get_handle(pool->ph);
-}
+#define assert_valid_uzfs_ptr_t(/*uzfs_ptr_t **/h) \
+    do { \
+        assert(NULL != (h)); \
+        assert(NULL != (h)->ptr); \
+        assert(NULL != (h)->klass); \
+    } while (false);
 
-static inline zpool_handle_t *ph_from_pool(uzfs_pool_t *pool)
-{
-    return pool->ph;
-}
+#define assert_valid_uzfs_lib_t(/*uzfs_lib_t **/lib) \
+    do { \
+        assert(NULL != lib); \
+        assert(NULL != lib->lh); \
+    } while (false);
 
-static inline zfs_handle_t *fh_from_fs(uzfs_fs_t *fs)
-{
-    return fs->fh;
-}
-#endif
+#define assert_uzfs_ptr_t_is(/*uzfs_ptr_t **/h, /*int*/ types) \
+    do { \
+        assert_valid_uzfs_ptr_t(h); \
+        assert(0 == ((h)->klass->type & ~(types))); \
+    } while (false);
 
 /* ========== (un)initialization ========== */
 
@@ -95,12 +127,151 @@ uzfs_lib_t *uzfs_init(char **error)
 
 void uzfs_fini(uzfs_lib_t *lib)
 {
-    assert(NULL != lib);
-    assert(NULL != lib->lh);
+    assert_valid_uzfs_lib_t(lib);
 
 //     zpool_free_handles(lib->lh);
     libzfs_fini(lib->lh);
     free(lib);
+}
+
+/* ========== zfs_handle_t/zpool_handle_t abstraction stuffs ========== */
+
+static void *uzfs_zpool_from_name(libzfs_handle_t *lh, const char *name, int UNUSED(types))
+{
+    return zpool_open_canfail(lh, name);
+}
+
+static bool uzfs_zpool_get_prop(void *ptr, const char *name, char *value, size_t value_size)
+{
+    bool ok;
+
+    assert(NULL != ptr);
+    assert(NULL != name);
+    assert(NULL != value);
+
+    ok = false;
+    do {
+        int prop;
+        zpool_handle_t *zh;
+
+        zh = (zpool_handle_t *) ptr;
+        if (ZPROP_INVAL == (prop = zprop_name_to_prop(name, ZFS_TYPE_POOL))) {
+            //set_generic_error(error, "property '%s' is not valid", name);
+            break;
+        }
+        if (0 != zpool_get_prop(zh, prop, value, value_size, NULL, B_TRUE)) {
+            break;
+        }
+        ok = true;
+    } while (false);
+
+    return ok;
+}
+
+static bool uzfs_dataset_get_prop(void *ptr, const char *name, char *value, size_t value_size)
+{
+    bool ok;
+
+    assert(NULL != ptr);
+    assert(NULL != name);
+    assert(NULL != value);
+
+    ok = false;
+    do {
+        zfs_handle_t *fh;
+
+        fh = (zfs_handle_t *) ptr;
+        if (NULL != strchr(name, ':')) {
+            char *v;
+            nvlist_t *props, *propval;
+
+            if (NULL == (props = zfs_get_user_props(fh))) {
+                break;
+            }
+            if (0 != nvlist_lookup_nvlist(props, name, &propval)) {
+                break;
+            }
+            if (0 != nvlist_lookup_string(propval, ZPROP_VALUE, &v)) {
+                break;
+            }
+            if (strlcpy(value, v, value_size) >= value_size) {
+                break;
+            }
+        } else {
+            int prop;
+
+            if (ZPROP_INVAL == (prop = zprop_name_to_prop(name, zfs_get_type(fh)))) {
+                //set_generic_error(error, "property '%s' is not valid", name);
+                break;
+            }
+            if (0 != zfs_prop_get(fh, prop, value, value_size, NULL, NULL, 0, B_TRUE)) {
+                break;
+            }
+        }
+        ok = true;
+    } while (false);
+
+    return ok;
+}
+
+#if 0
+typedef enum {
+	ZFS_TYPE_FILESYSTEM	= (1 << 0),
+	ZFS_TYPE_SNAPSHOT	= (1 << 1),
+	ZFS_TYPE_VOLUME		= (1 << 2),
+	ZFS_TYPE_POOL		= (1 << 3),
+	ZFS_TYPE_BOOKMARK	= (1 << 4)
+} zfs_type_t;
+#endif
+
+#define K(type, close, get_name, from_name, to_pool_name, to_libzfs_handle, get_prop, set_prop) \
+    { \
+        type, \
+        (uzfs_close_callback_t) close, \
+        (uzfs_get_name_callback_t) get_name, \
+        (uzfs_from_name_callback_t) from_name, \
+        (uzfs_to_pool_name_callback_t) to_pool_name, \
+        (uzfs_to_libzfs_handle_callback_t) to_libzfs_handle, \
+        (uzfs_get_prop_callback_t) get_prop, \
+        (uzfs_set_prop_callback_t) set_prop, \
+    }
+
+static const zfs_klass_t zpool_klass = K(ZFS_TYPE_POOL, zpool_close, zpool_get_name, uzfs_zpool_from_name, zpool_get_name, zpool_get_handle, uzfs_zpool_get_prop, zpool_set_prop);
+static const zfs_klass_t filesystem_klass = K(ZFS_TYPE_FILESYSTEM, zfs_close, zfs_get_name, zfs_open, zfs_get_pool_name, zfs_get_handle, uzfs_dataset_get_prop, zfs_prop_set);
+static const zfs_klass_t snapshot_klass = K(ZFS_TYPE_SNAPSHOT, zfs_close, zfs_get_name, zfs_open, zfs_get_pool_name, zfs_get_handle, uzfs_dataset_get_prop, zfs_prop_set);
+
+#undef K
+
+static const zfs_klass_t *klasses[] = {
+    [ UZFS_TYPE_POOL ] = &zpool_klass,
+    [ UZFS_TYPE_FILESYSTEM ] = &filesystem_klass,
+    [ UZFS_TYPE_SNAPSHOT ] = &snapshot_klass,
+};
+
+/* ========== wrapping ========== */
+
+static uzfs_ptr_t *uzfs_wrap(void *zh, uzfs_type_t type)
+{
+    uzfs_ptr_t *h;
+
+    assert_valid_uzfs_type_t(type);
+
+    h = NULL;
+    if (NULL != zh && NULL != (h = malloc(sizeof(*h)))) {
+        h->ptr = zh;
+        h->klass = klasses[type];
+    }
+
+    return h;
+}
+
+/* ========== private helpers ========== */
+
+static inline libzfs_handle_t *to_libzfs_handle(uzfs_ptr_t *h)
+{
+    assert_valid_uzfs_ptr_t(h);
+
+    return h->klass->to_libzfs_handle(h->ptr);
 }
 
 /* ========== File systems/mountpoints related helpers ========== */
@@ -127,6 +298,120 @@ static zfs_handle_t *uzfs_get_fs_from_file(libzfs_handle_t *lh, const char *path
 
 /* ========== public ========== */
 
+uzfs_ptr_t *uzfs_from_name(uzfs_lib_t *lib, const char *name, uzfs_type_t type)
+{
+    assert(NULL != name);
+    assert_valid_uzfs_lib_t(lib);
+    assert_valid_uzfs_type_t(type);
+
+    return uzfs_wrap(klasses[type]->from_name(lib->lh, name, type), type);
+}
+
+const char *uzfs_get_name(uzfs_ptr_t *h)
+{
+    assert_valid_uzfs_ptr_t(h);
+
+    return h->klass->get_name(h->ptr);
+}
+
+void uzfs_close(uzfs_ptr_t **hp)
+{
+    uzfs_ptr_t *h;
+
+    assert(NULL != hp);
+    h = *hp;
+    assert_valid_uzfs_ptr_t(h);
+
+    h->klass->close(h->ptr);
+    free(h);
+    *hp = NULL;
+}
+
+bool uzfs_same_pool(uzfs_ptr_t *h1, uzfs_ptr_t *h2)
+{
+    const char *pool1_name, *pool2_name;
+
+    assert_valid_uzfs_ptr_t(h1);
+    assert_valid_uzfs_ptr_t(h2);
+
+    pool1_name = h1->klass->to_pool_name(h1->ptr);
+    pool2_name = h2->klass->to_pool_name(h2->ptr);
+
+    return NULL != pool1_name && NULL != pool2_name && 0 == strcmp(pool1_name, pool2_name);
+}
+
+uzfs_type_t uzfs_get_type(uzfs_ptr_t *h)
+{
+    assert_valid_uzfs_ptr_t(h);
+
+    return (uzfs_type_t) (h->klass - *klasses);
+}
+
+bool uzfs_get_prop(uzfs_ptr_t *h, const char *name, char *value, size_t value_size)
+{
+    assert_valid_uzfs_ptr_t(h);
+    assert(NULL != name);
+    assert(NULL != value);
+
+    return h->klass->get_prop(h->ptr, name, value, value_size);
+}
+
+bool uzfs_get_prop_numeric(uzfs_ptr_t *h, const char *name, uint64_t *value)
+{
+    bool ok;
+
+    assert_valid_uzfs_ptr_t(h);
+    assert(NULL != name);
+    assert(NULL != value);
+
+    ok = false;
+    do {
+        char propstr[128], *endptr;
+        unsigned long long propui;
+
+        if (!h->klass->get_prop(h->ptr, name, propstr, STR_SIZE(propstr))) {
+            break;
+        }
+        propui = strtoull(propstr, &endptr, 10);
+        if ('\0' != *endptr || (ERANGE == errno && ULLONG_MAX == propui)) {
+            break;
+        }
+        *value = propui;
+        ok = true;
+    } while (false);
+
+    return ok;
+}
+
+bool uzfs_set_prop(uzfs_ptr_t *h, const char *name, const char *value, char **error)
+{
+    int ret;
+
+    assert_valid_uzfs_ptr_t(h);
+    assert(NULL != name);
+    assert(NULL != value);
+
+    if (-1 == (ret = h->klass->set_prop(h->ptr, name, value))) {
+        set_zfs_error(error, to_libzfs_handle(h), "failed to set property '%s' to '%s'", name, value);
+    }
+
+    return -1 != ret;
+}
+
+bool uzfs_set_prop_numeric(uzfs_ptr_t *h, const char *name, uint64_t value, char **error)
+{
+    int ret;
+    char buffer[128];
+
+    assert_valid_uzfs_ptr_t(h);
+    assert(NULL != name);
+
+    ret = snprintf(buffer, STR_SIZE(buffer), "%" PRIu64, value);
+    assert(ret > 0 && ((size_t) ret) <= STR_SIZE(buffer));
+
+    return uzfs_set_prop(h, name, buffer, error);
+}
+
 /**
  * Determine if the given directory is an **actual** mountpoint for a ZFS filesystem
  *
@@ -142,132 +427,6 @@ bool uzfs_is_fs(const char *path)
     return NULL != realpath(path, normalized) && uzfs_statfs(normalized, &buf) && 0 == strcmp(normalized, buf.f_mntonname);
 }
 
-static int snaphosts_iter_callback_keep_last(zfs_handle_t *fh, void *data)
-{
-    *((const char **) data) = zfs_get_name(fh);
-    zfs_close(fh);
-
-    return 0;
-}
-
-#if 0
-static
-#endif
-bool uzfs_last_snapshot(uzfs_lib_t *lib, char *to, char *last_snapshot, size_t last_snapshot_len, char **error)
-{
-    bool ok;
-    zfs_handle_t *fh;
-    const char *last;
-    char buffer[ZFS_MAX_DATASET_NAME_LEN];
-
-    assert(NULL != last_snapshot);
-
-    last = NULL;
-    *buffer = *last_snapshot = '\0';
-
-    ok = NULL != (fh = zfs_path_to_zhandle(lib->lh, to, ZFS_TYPE_FILESYSTEM));
-    if (ok) {
-        ok = 0 == zfs_iter_snapshots_sorted(fh, snaphosts_iter_callback_keep_last, &last, 0, 0);
-        zfs_close(fh);
-    } else {
-        set_zfs_error(error, lib->lh, "%s is not a ZFS filesystem", to);
-    }
-    if (ok && NULL != last) {
-        if (strlcpy(last_snapshot, last, last_snapshot_len) >= last_snapshot_len) {
-            set_buffer_overflow_error(error, last, last_snapshot, last_snapshot_len);
-        }
-    }
-
-    return ok;
-}
-
-static const char *snapshot_skip_filesystem(const char *snapshot)
-{
-    const char *retval, *at;
-
-    if (NULL == (at = strchr(snapshot, '@'))) {
-        retval = snapshot;
-    } else {
-        retval = at + 1;
-    }
-
-    return retval;
-}
-
-struct snapshot_t {
-    zfs_handle_t *fh;
-    TAILQ_ENTRY(snapshot_t) entries;
-};
-
-static int snaphosts_iter_callback_build_array(zfs_handle_t *fh, void *data)
-{
-    struct snapshot_t *e;
-    TAILQ_HEAD(tailhead, snapshot_t) *head;
-
-    head = (struct tailhead *) data;
-    e = malloc(sizeof(*e));
-    assert(NULL != e);
-    e->fh = fh;
-    TAILQ_INSERT_HEAD(head, e, entries);
-
-    return 0;
-}
-
-/**
- * Keep the count lastest snapshots, (recursively - in descendants) deleting the others.
- *
- * @param fs the base ZFS filesystem to cleanup
- * @param count the number of the last snapshots to keep
- * @param deleted send back to the caller the number of snapshots which have been successfully destroyed, can be `NULL` to ignore
- * @param error
- *
- * @return `false` on failure
- */
-bool uzfs_retain_snapshots(uzfs_fs_t *fs, size_t count, size_t *deleted, char **error)
-{
-    bool ok;
-    size_t destroyed;
-    struct snapshot_t *e1, *e2;
-    TAILQ_HEAD(tailhead, snapshot_t) head;
-
-    assert(NULL != fs);
-    assert(0 != count);
-
-    ok = true;
-    destroyed = 0;
-    TAILQ_INIT(&head);
-    zfs_iter_snapshots_sorted(fs->fh, snaphosts_iter_callback_build_array, &head, 0, 0);
-    if (!TAILQ_EMPTY(&head)) {
-        size_t i;
-
-        i = 0;
-        e1 = TAILQ_FIRST(&head);
-        while (ok && e1 != NULL) {
-            e2 = TAILQ_NEXT(e1, entries);
-            if (i >= count) {
-                const char *name;
-
-                name = zfs_get_name(e1->fh);
-                if (0 != zfs_destroy_snaps(fs->fh, (char *) snapshot_skip_filesystem(name), true/*defer*/)) {
-                    ok = false;
-                    set_zfs_error(error, lh_from_fs(fs), "zfs_destroy_snaps failed to delete %s", name);
-                } else {
-                    ++destroyed;
-                }
-            }
-            zfs_close(e1->fh); // should be done between zfs_get_name and zfs_destroy_snaps?
-            free(e1);
-            e1 = e2;
-            ++i;
-        }
-    }
-    if (NULL != deleted) {
-        *deleted = destroyed;
-    }
-
-    return ok;
-}
-
 /**
  * Take a snapshot of a filesystem, equivalent to: zfs snapshot *filesystem*@$(date "+*scheme*")
  *
@@ -281,11 +440,11 @@ bool uzfs_retain_snapshots(uzfs_fs_t *fs, size_t count, size_t *deleted, char **
  *
  * @return `false` on failure
  */
-bool uzfs_snapshot(uzfs_fs_t *fs, const char *scheme, bool strftime_scheme, char *name, size_t name_size, bool recursive, char **error)
+bool uzfs_snapshot(uzfs_ptr_t *fs, const char *scheme, bool strftime_scheme, char *name, size_t name_size, bool recursive, char **error)
 {
     bool ok;
 
-    assert(NULL != fs);
+    assert_uzfs_ptr_t_is(fs, ZFS_TYPE_FILESYSTEM);
     assert(NULL != scheme);
     assert(NULL != name);
 
@@ -296,8 +455,11 @@ bool uzfs_snapshot(uzfs_fs_t *fs, const char *scheme, bool strftime_scheme, char
         const char *filesystem;
         const char * const name_end = name + name_size;
 
-        lh = lh_from_fs(fs);
-        filesystem = uzfs_fs_get_name(fs);
+        if (NULL == (lh = to_libzfs_handle(fs))) {
+            set_generic_error(error, "can't acquire a valid libzfs_handle_t");
+            break;
+        }
+        filesystem = uzfs_get_name(fs);
         if (NULL == (w = stpcpy_sp(name, filesystem, name_end))) {
             set_buffer_overflow_error(error, filesystem, name, name_size);
             break;
@@ -354,19 +516,23 @@ bool uzfs_snapshot(uzfs_fs_t *fs, const char *scheme, bool strftime_scheme, char
  * @note this operation is recursive, children filesystems/snapshots/bookmarks will
  * also be deleted!!!
  */
-bool uzfs_filesystem_destroy(uzfs_fs_t **fs, char **error)
+bool uzfs_filesystem_destroy(uzfs_ptr_t **fs, char **error)
 {
     bool ok;
     zfs_handle_t *fh;
-    libzfs_handle_t *lh;
 
     assert(NULL != fs);
-    assert(NULL != *fs);
+    assert_uzfs_ptr_t_is(*fs, ZFS_TYPE_FILESYSTEM | ZFS_TYPE_SNAPSHOT);
 
     ok = false;
     fh = (*fs)->fh;
-    lh = lh_from_fs(*fs);
     do {
+        libzfs_handle_t *lh;
+
+        if (NULL == (lh = to_libzfs_handle(*fs))) {
+            set_generic_error(error, "can't acquire a valid libzfs_handle_t");
+            break;
+        }
         if (zfs_is_shared(fh)) {
             if (0 != zfs_unshareall(fh)) {
                 set_zfs_error(error, lh, "zfs_unshareall %s failed", zfs_get_name(fh));
@@ -381,8 +547,7 @@ bool uzfs_filesystem_destroy(uzfs_fs_t **fs, char **error)
         }
         ok = 0 == zfs_destroy(fh, false/*defer*/);
         if (ok) {
-            uzfs_fs_close(*fs);
-            *fs = NULL;
+            uzfs_close(fs);
         } else {
             set_zfs_error(error, lh, "zfs_destroy %s failed", zfs_get_name(fh));
 //             break;
@@ -392,42 +557,6 @@ bool uzfs_filesystem_destroy(uzfs_fs_t **fs, char **error)
     return ok;
 }
 
-static uzfs_fs_t *fs_wrap(zfs_handle_t *);
-
-static uzfs_pool_t *pool_wrap(zpool_handle_t *ph)
-{
-    uzfs_pool_t *pool;
-
-    assert(NULL != ph);
-    pool = malloc(sizeof(*pool));
-    assert(NULL != pool);
-    pool->ph = ph;
-
-    return pool;
-}
-
-/**
- * Get a ZFS pool from its name
- *
- * @param name the name of the targeted pool
- *
- * @return the corresponding pool, `NULL` if there is no such pool
- */
-uzfs_pool_t *uzfs_pool_from_name(uzfs_lib_t *lib, const char *name)
-{
-    uzfs_pool_t *pool;
-    zpool_handle_t *ph;
-
-    assert(NULL != name);
-
-    pool = NULL;
-    if (NULL != (ph = zpool_open_canfail(lib->lh, name))) {
-        pool = pool_wrap(ph);
-    }
-
-    return pool;
-}
-
 /**
  * Get a pool descriptor from a child ZFS filesystem
  *
@@ -435,53 +564,11 @@ uzfs_pool_t *uzfs_pool_from_name(uzfs_lib_t *lib, const char *name)
  *
  * @return a pool descriptor to its pool
  */
-uzfs_pool_t *uzfs_pool_from_fs(uzfs_fs_t *fs)
+uzfs_ptr_t *uzfs_pool_from_fs(uzfs_ptr_t *fs)
 {
-    assert(NULL != fs);
+    assert_uzfs_ptr_t_is(fs, ZFS_TYPE_FILESYSTEM);
 
-    return pool_wrap(zfs_get_pool_handle(fs->fh));
-}
-
-/**
- * Free memory associated to a pool descriptor
- * (it does not affect the pool itself)
- *
- * @param pool the pool pointer to free
- */
-void uzfs_pool_close(uzfs_pool_t *pool)
-{
-    assert(NULL != pool);
-
-    zpool_close(pool->ph);
-    free(pool);
-}
-
-/* FileSystem */
-
-static uzfs_fs_t *fs_wrap(zfs_handle_t *fh)
-{
-    uzfs_fs_t *fs;
-
-    assert(NULL != fh);
-    fs = malloc(sizeof(*fs));
-    assert(NULL != fs);
-    fs->fh = fh;
-
-    return fs;
-}
-
-/**
- * Get the name of the pool
- *
- * @param pool a descriptor to the pool
- *
- * @return the name of the pool
- */
-const char *uzfs_pool_get_name(uzfs_pool_t *pool)
-{
-    assert(NULL != pool);
-
-    return zpool_get_name(pool->ph);
+    return uzfs_wrap(zfs_get_pool_handle(fs->fh), UZFS_TYPE_POOL);
 }
 
 /**
@@ -492,127 +579,84 @@ const char *uzfs_pool_get_name(uzfs_pool_t *pool)
  * @return `NULL` if *path* is not located on a ZFS filesystem or a descriptor of the
  * ZFS filesystem where the file is located.
  */
-uzfs_fs_t *uzfs_fs_from_file(uzfs_lib_t *lib, const char *path)
+uzfs_ptr_t *uzfs_fs_from_file(uzfs_lib_t *lib, const char *path)
 {
-    uzfs_fs_t *fs;
-    zfs_handle_t *fh;
 
+    assert_valid_uzfs_lib_t(lib);
     assert(NULL != path);
 
-    fs = NULL;
-    if (NULL != (fh = uzfs_get_fs_from_file(lib->lh, path))) {
-        fs = fs_wrap(fh);
-    }
-
-    return fs;
+    return uzfs_wrap(uzfs_get_fs_from_file(lib->lh, path), UZFS_TYPE_FILESYSTEM);
 }
 
-bool uzfs_same_pool(uzfs_fs_t *fs1, uzfs_fs_t *fs2)
-{
-    const char *pool1_name, *pool2_name;
-
-    assert(NULL != fs1);
-    assert(NULL != fs2);
-
-    pool1_name = zfs_get_pool_name(fs1->fh);
-    pool2_name = zfs_get_pool_name(fs2->fh);
-
-    return 0 == strcmp(pool1_name, pool2_name);
-}
-
-bool uzfs_same_fs(uzfs_fs_t *fs1, uzfs_fs_t *fs2)
+bool uzfs_same_fs(uzfs_ptr_t *fs1, uzfs_ptr_t *fs2)
 {
     const char *fs1_name, *fs2_name;
 
-    assert(NULL != fs1);
-    assert(NULL != fs2);
+    assert_uzfs_ptr_t_is(fs1, ZFS_TYPE_FILESYSTEM);
+    assert_uzfs_ptr_t_is(fs2, ZFS_TYPE_FILESYSTEM);
 
     fs1_name = zfs_get_name(fs1->fh);
     fs2_name = zfs_get_name(fs2->fh);
 
-    return 0 == strcmp(fs1_name, fs2_name);
+    return NULL != fs1_name && NULL != fs2_name && 0 == strcmp(fs1_name, fs2_name);
 }
 
-/**
- * Get a descriptor to a ZFS filesystem from its complete name
- *
- * @param name the full name of the targeted ZFS filesystem
- *
- * @return `NULL` if there is no such filesystem or a descriptor to it
- */
-uzfs_fs_t *uzfs_fs_from_name(uzfs_lib_t *lib, const char *name)
-{
-    uzfs_fs_t *fs;
-    zfs_handle_t *fh;
-
-    fs = NULL;
-    if (NULL != (fh = zfs_open(lib->lh, name, ZFS_TYPE_FILESYSTEM))) {
-        fs = fs_wrap(fh);
-    }
-
-    return fs;
-}
-
-/**
- * Get the full name (including the prefix "<pool's name>/" of a ZFS filesystem
- *
- * @param fs a descriptor the concerned ZFS filesystem
- *
- * @return its complete name
- */
-const char *uzfs_fs_get_name(uzfs_fs_t *fs)
-{
-    assert(NULL != fs);
-
-    return zfs_get_name(fs->fh);
-}
-
-/**
- * Free memory associated to a ZFS filesystem descriptor
- * (this does not affect the ZFS filesystem itself)
- *
- * @param fs the descriptor to a ZFS filesystem to close
- */
-void uzfs_fs_close(uzfs_fs_t *fs)
-{
-    assert(NULL != fs);
-
-    zfs_close(fs->fh);
-    free(fs);
-}
-
-bool uzfs_fs_prop_get(uzfs_fs_t *fs, const char *name, char *value, size_t value_size)
+static int filesystems_iter_callback_callback(zfs_handle_t *fh, void *data)
 {
     bool ok;
 
-    assert(NULL != fs);
-    assert(NULL != name);
-    assert(NULL != value);
+    ok = false;
+    do {
+//         uzfs_ptr_t *child;
+
+//         child = uzfs_wrap(fh, UZFS_TYPE_FILESYSTEM);
+        debug("%s is a child of %s", zfs_get_name(fh), (const char *) data);
+        zfs_close(fh);
+        ok = true;
+    } while (false);
+
+    return ok ? 0 : 1;
+}
+
+/**
+ * Determine the location of the filesystem *child* according to *parent*
+ *
+ * @param parent the reference ZFS filesystem
+ * @param child the filesystem to check compared to *parent*
+ *
+ * @return `UZFS_LOCATION_SAME` if *parent* and *child* are the same filesystem,
+ * `UZFS_LOCATION_CHILD` if *child* is a subfilesystem of *parent* (parent, grandparent, grandgrandparent and so on)
+ * or `UZFS_LOCATION_NONE` if *child* is not affiliated to *parent*.
+ *
+ * @note this function doesn't look for the opposite relation (if *child* is an ancestor of *parent*, only if it [child] is a descendant)
+ *
+ * @todo need to take care of a child with mountpoint=none?
+ */
+#if 0
+extern int zfs_parent_name(zfs_handle_t *, char *, size_t);
+#endif
+uzfs_location_t uzfs_depth(uzfs_ptr_t *parent, uzfs_ptr_t *child)
+{
+    assert_uzfs_ptr_t_is(parent, ZFS_TYPE_FILESYSTEM);
+    assert_uzfs_ptr_t_is(child, ZFS_TYPE_FILESYSTEM);
+
+    zfs_iter_filesystems(parent->fh, filesystems_iter_callback_callback, (void *) zfs_get_name(parent->fh));
+
+    return -1;
+}
+
+bool uzfs_rollback(uzfs_ptr_t *fs, uzfs_ptr_t *snapshot, bool force, char **error)
+{
+    bool ok;
+
+    assert_uzfs_ptr_t_is(fs, ZFS_TYPE_FILESYSTEM);
+    assert_uzfs_ptr_t_is(snapshot, ZFS_TYPE_SNAPSHOT);
 
     ok = false;
     do {
-        if (NULL != strchr(name, ':')) {
-            nvlist_t *props, *propval;
-
-            if (NULL == (props = zfs_get_user_props(fs->fh))) {
-                break;
-            }
-            if (0 != nvlist_lookup_nvlist(props, name, &propval)) {
-                break;
-            }
-            if (0 != nvlist_lookup_string(propval, ZPROP_VALUE, &value)) {
-                break;
-            }
-        } else {
-            int prop;
-
-            if (ZPROP_INVAL == (prop = zprop_name_to_prop(name, zfs_get_type(fs->fh)))) {
-                //set_generic_error(error, "property '%s' is not valid", name);
-                break;
-            }
-            if (0 != zfs_prop_get(fs->fh, prop, value, value_size, NULL, NULL, 0, B_TRUE)) {
-                break;
-            }
+        if (0 != zfs_rollback(fs->fh, snapshot->fh, force)) {
+            set_zfs_error(error, to_libzfs_handle(fs), "failed to rollback '%s' to '%s'", zfs_get_name(fs->fh), zfs_get_name(snapshot->fh));
+            break;
         }
         ok = true;
     } while (false);
@@ -620,81 +664,53 @@ bool uzfs_fs_prop_get(uzfs_fs_t *fs, const char *name, char *value, size_t value
     return ok;
 }
 
-bool uzfs_fs_prop_get_numeric(uzfs_fs_t *fs, const char *name, uint64_t *value)
+struct internal_snaphosts_iter_callback_data {
+    void *data;
+    char **error;
+    bool (*callback)(uzfs_ptr_t *, void *, char **);
+};
+
+static int snaphosts_iter_callback_callback(zfs_handle_t *fh, struct internal_snaphosts_iter_callback_data *isicdt)
 {
     bool ok;
+    uzfs_ptr_t *snapshot;
 
-    assert(NULL != fs);
-    assert(NULL != name);
-    assert(NULL != value);
+    assert(NULL != isicdt);
 
-    ok = false;
-    do {
-        if (NULL != strchr(name, ':')) {
-            char *propstr, *endptr;
-            nvlist_t *props, *propval;
-            unsigned long long propui;
+    snapshot = uzfs_wrap(fh, UZFS_TYPE_SNAPSHOT);
+    ok = isicdt->callback(snapshot, isicdt->data, isicdt->error);
 
-            if (NULL == (props = zfs_get_user_props(fs->fh))) {
-                break;
-            }
-            if (0 != nvlist_lookup_nvlist(props, name, &propval)) {
-                break;
-            }
-            if (0 != nvlist_lookup_string(propval, ZPROP_VALUE, &propstr)) {
-                break;
-            }
-            propui = strtoull(propstr, &endptr, 10);
-            if ('\0' != *endptr || (errno == ERANGE && propui == ULLONG_MAX)) {
-                break;
-            }
-            *value = propui;
-        } else {
-            int prop;
-
-            if (ZPROP_INVAL == (prop = zprop_name_to_prop(name, zfs_get_type(fs->fh)))) {
-                //set_generic_error(error, "property '%s' is not valid", name);
-                break;
-            }
-            // uint64_t zfs_prop_get_int(zfs_handle_t *, zfs_prop_t);
-            if (0 != zfs_prop_get_numeric(fs->fh, prop, value, NULL, NULL, 0)) {
-                break;
-            }
-        }
-        ok = true;
-    } while (false);
-
-    return ok;
+    return ok ? 0 : 1;
 }
 
-bool uzfs_fs_prop_set(uzfs_fs_t *fs, const char *name, const char *value, char **error)
+// NOTE: callback is responsible to call uzfs_close on its first argument at some point
+bool uzfs_iter_snapshots(uzfs_ptr_t *fs, bool (*callback)(uzfs_ptr_t *, void *, char **), void *data, char **error)
 {
     int ret;
+    struct internal_snaphosts_iter_callback_data isicdt;
 
-    assert(NULL != fs);
-    assert(NULL != name);
-    assert(NULL != value);
+    assert_uzfs_ptr_t_is(fs, ZFS_TYPE_FILESYSTEM);
 
-    if (-1 == (ret = zfs_prop_set(fs->fh, name, value))) {
-        set_zfs_error(error, lh_from_fs(fs), "failed to set property '%s' to '%s'", name, value);
-    }
+    isicdt.data = data;
+    isicdt.error = error;
+    isicdt.callback = callback;
+    ret = zfs_iter_snapshots(fs->fh, false, (zfs_iter_f) snaphosts_iter_callback_callback, &isicdt, 0, 0);
 
-    return -1 != ret;
+    return !ret;
 }
 
-bool uzfs_fs_prop_set_numeric(uzfs_fs_t *fs, const char *name, uint64_t value, char **error)
-{
-    int ret;
-    char buffer[128];
+#if 0
+typedef int (*zfs_iter_f)(zfs_handle_t *, void *);
 
-    assert(NULL != fs);
-    assert(NULL != name);
+extern int zfs_iter_snapshots(zfs_handle_t *, boolean_t, zfs_iter_f, void *, uint64_t, uint64_t);
+extern int zfs_iter_snapshots_sorted(zfs_handle_t *, zfs_iter_f, void *, uint64_t, uint64_t);
+extern int zfs_iter_snapspec(zfs_handle_t *, const char *, zfs_iter_f, void *);
 
-    ret = snprintf(buffer, STR_SIZE(buffer), "%" PRIu64, value);
-    assert(ret > 0 && ((size_t) ret) <= STR_SIZE(buffer));
-    if (-1 == (ret = zfs_prop_set(fs->fh, name, buffer))) {
-        set_zfs_error(error, lh_from_fs(fs), "failed to set property '%s' to '%" PRIu64 "'", name, value);
-    }
+extern int zfs_destroy(zfs_handle_t *, boolean_t);
+extern int zfs_destroy_snaps(zfs_handle_t *, char *, boolean_t);
+extern int zfs_destroy_snaps_nvl(libzfs_handle_t *, nvlist_t *, boolean_t);
 
-    return -1 != ret;
-}
+extern int zfs_snapshot(libzfs_handle_t *, const char *, boolean_t, nvlist_t *);
+extern int zfs_snapshot_nvl(libzfs_handle_t *hdl, nvlist_t *snaps, nvlist_t *props);
+extern int zfs_rollback(zfs_handle_t *, zfs_handle_t *, boolean_t);
+#endif

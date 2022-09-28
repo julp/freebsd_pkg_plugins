@@ -4,10 +4,11 @@
 #include <pkg.h>
 
 #include "common.h"
-#include "shared/compat.h"
 #include "error.h"
+#include "shared/compat.h"
 #include "shared/os.h"
 #include "backup_method.h"
+#include "retention.h"
 
 #ifdef HAVE_BE
 extern const backup_method_t be_method;
@@ -30,6 +31,8 @@ static struct pkg_plugin *self;
 static const backup_method_t *method;
 
 static char DESCRIPTION[] = "ZFS/BE integration to provide recovery";
+
+const char *hook_to_name(int hook);
 
 static pkg_error_t find_backup_method(char **error)
 {
@@ -87,32 +90,106 @@ static bool take_snapshot(const char *scheme, const char *hook, char **error)
     return ok;
 }
 
-static char pkg_zint_optstr[] = "t";
+static char pkg_zint_optstr[] = "nty";
 
 static struct option pkg_zint_long_options[] = {
+    { "dry-run",   no_argument, NULL, 'n' },
     { "temporary", no_argument, NULL, 't' },
+    { "yes",       no_argument, NULL, 'y' },
     { NULL,        no_argument, NULL, 0 },
 };
 
 static void pkg_zint_usage(void)
 {
-    fprintf(stderr, "usage: pkg %s rollback\n", NAME);
+    fprintf(stderr, "usage: pkg %s [-%s] rollback\n", NAME, pkg_zint_optstr);
+}
+
+static bool purge_snapshots(const retention_t *retention, uint64_t limit, char **error)
+{
+    bool ok;
+    void *fcd;
+    DList l; // snapshots per filesystem
+
+    assert(NULL != method); // to make sure purge_snapshots is not called prior to method have been set
+
+    ok = false;
+    fcd = NULL;
+    dlist_init(&l, NULL, (DtorFunc) dlist_destroy);
+    do {
+        DList *l2; // snapshots (on a given filesystem)
+        Iterator it;
+
+        if (NULL == (fcd = retention_filter_callback_data_create(retention, limit, error))) {
+            break;
+        }
+        if (!method->list(ptc, method_data, &l, error)) {
+            break;
+        }
+        dlist_to_iterator(&it, &l);
+        for (iterator_first(&it); iterator_is_valid(&it, NULL, &l2); iterator_next(&it)) {
+#ifdef DEBUG
+            int i;
+#endif /* DEBUG */
+            Iterator it2;
+            snapshot_t *snap;
+
+            retention_filter_callback_data_reset(fcd);
+            dlist_sort(l2, snapshot_compare_by_creation_date_desc);
+            dlist_to_iterator(&it2, l2);
+#ifdef DEBUG
+            i = 1;
+            debug("<snapshots found (created by zint)>");
+            for (iterator_first(&it2); iterator_is_valid(&it2, NULL, &snap); iterator_next(&it2)) {
+                debug("%d. %s was created by zint version %" PRIu64 " for '%s' (%d)", i++, snap->name, snap->version, hook_to_name(snap->hook), snap->hook);
+            }
+            debug("</snapshots found (created by zint)>");
+            i = 1;
+#endif /* DEBUG */
+            iterator_reject(&it2, retention_filter_callback, fcd);
+#ifdef DEBUG
+            debug("<to be deleted (doesn't match retention)>");
+            for (iterator_last(&it2); iterator_is_valid(&it2, NULL, &snap); iterator_previous(&it2)) {
+                debug("%d. %s was created by zint version %" PRIu64 " for '%s' (%d)", i++, snap->name, snap->version, hook_to_name(snap->hook), snap->hook);
+            }
+            debug("</to be deleted (doesn't match retention)>");
+#endif /* DEBUG */
+            for (ok = true, iterator_last(&it2); ok && iterator_is_valid(&it2, NULL, &snap); iterator_previous(&it2)) {
+                ok &= method->destroy(snap, method_data, error);
+            }
+            iterator_close(&it2);
+        }
+        iterator_close(&it);
+    } while (false);
+    if (NULL != fcd) {
+        retention_filter_callback_data_destroy(fcd);
+    }
+    dlist_clear(&l);
+
+    return ok;
 }
 
 static int pkg_zint_main(int argc, char **argv)
 {
     int ch;
+    DList l;
     char *error;
-    bool temporary;
     pkg_error_t status;
+    bool dry_run, temporary, yes;
 
     error = NULL;
-    temporary = false;
     status = EPKG_FATAL;
+    dry_run = temporary = yes = false;
+    dlist_init(&l, NULL, (DtorFunc) dlist_clear);
     while (-1 != (ch = getopt_long(argc, argv, pkg_zint_optstr, pkg_zint_long_options, NULL))) {
         switch (ch) {
+            case 'n':
+                dry_run = true;
+                break;
             case 't':
                 temporary = true;
+                break;
+            case 'y':
+                yes = true;
                 break;
             default:
                 status = EX_USAGE;
@@ -125,14 +202,40 @@ static int pkg_zint_main(int argc, char **argv)
     if (1 != argc || 0 != strcmp("rollback", argv[0])) {
         status = EX_USAGE;
     }
-
     do {
         if (EX_USAGE == status) {
             pkg_zint_usage();
             break;
         }
-        if (!method->rollback(ptc, method_data, temporary, &error)) {
+        if (!method->list(ptc, method_data, &l, &error)) {
             break;
+        }
+        {
+            DList *l2;
+            Iterator it;
+
+            dlist_to_iterator(&it, &l);
+            for (iterator_first(&it); iterator_is_valid(&it, NULL, &l2); iterator_next(&it)) {
+                snapshot_t *last;
+
+                last = NULL;
+                dlist_sort(l2, snapshot_compare_by_creation_date_desc);
+                if (!dlist_at(l2, 0, (void **) &last)) {
+                    set_generic_error(&error, "no identified previous version to rollback to");
+                    break;
+                }
+                if (!dry_run) {
+#if 0
+                    if (!method->rollback_to(last->name, method_data, temporary, &error)) {
+                        break;
+                    }
+#else
+                    debug("rollback disabled (testing/safety)");
+#endif
+                }
+                fprintf(stderr, "system %s rollbacked on '%s' (from '%s')\n", dry_run ? "would be" : "was", last->name, hook_to_name(last->hook));
+            }
+            iterator_close(&it);
         }
         status = EPKG_OK;
     } while (false);
@@ -140,6 +243,7 @@ static int pkg_zint_main(int argc, char **argv)
         pkg_plugin_error(self, "%s", error);
         error_free(&error);
     }
+    dlist_clear(&l);
 
     return status;
 }
@@ -150,6 +254,30 @@ static const char *hooks[] = {
 #include "hooks.h"
 };
 #undef HOOK
+
+int name_to_hook(const char *name)
+{
+    int hook;
+
+    hook = -1;
+    if (NULL != name) {
+        size_t i;
+
+        for (i = 0; i < ARRAY_SIZE(hooks); i++) {
+            if (NULL != hooks[i] && 0 == strcmp(hooks[i], name)) {
+                hook = i;
+                break;
+            }
+        }
+    }
+
+    return hook;
+}
+
+const char *hook_to_name(int hook)
+{
+    return hooks[hook];
+}
 
 static int real_handle_hooks(pkg_plugin_hook_t hook, const char *scheme, void *data)
 {
@@ -213,6 +341,7 @@ int pkg_plugin_init(struct pkg_plugin *p)
     /**
      * Default configuration:
      *
+     * RETENTION = "";
      * FORCE = false;
      * ON: [
      *     pre_upgrade,
@@ -222,15 +351,23 @@ int pkg_plugin_init(struct pkg_plugin *p)
      */
     pkg_plugin_conf_add(p, PKG_BOOL, CFG_FORCE, "false");
     pkg_plugin_conf_add(p, PKG_ARRAY, CFG_ON, "pre_upgrade, pre_deinstall, pre_autoremove");
+    pkg_plugin_conf_add(p, PKG_STRING, CFG_RETENTION, "");
     pkg_plugin_parse(p);
 
     do {
+        uint64_t limit;
         pkg_object_t object_type;
+        const retention_t *retention;
         const pkg_object *config, *object;
 
         status = EPKG_FATAL;
         config = pkg_plugin_conf(p);
         debug("<config>\n%s\n</config>", pkg_object_dump(config));
+
+        object = pkg_object_find(config, CFG_RETENTION);
+        if (NULL == (retention = retention_parse(object, &limit, &error))) {
+            break;
+        }
 
         object = pkg_object_find(config, CFG_FORCE);
         force = pkg_object_bool(object);
@@ -271,7 +408,6 @@ int pkg_plugin_init(struct pkg_plugin *p)
             set_generic_error(&error, "configuration key '%s' is expected to be an array or an object but got: %s (%d)", CFG_ON, pkg_object_string(object), object_type);
             break;
         }
-
         if (NULL == (ptc = prober_create(&error))) {
             break;
         }
@@ -279,6 +415,8 @@ int pkg_plugin_init(struct pkg_plugin *p)
             break;
         }
         assert(NULL != method);
+        debug("DEBUG: using method '%s'", method->name);
+        purge_snapshots(retention, limit, &error);
     } while (false);
     if (EPKG_FATAL == status && NULL != error) {
         pkg_plugin_error(self, "%s", error);

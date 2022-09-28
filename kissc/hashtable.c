@@ -853,6 +853,46 @@ static void hashtable_iterator_previous(const void *UNUSED(collection), void **s
     *state = ((HashNode *) *state)->gPrev;
 }
 
+#if 0
+static HashNode *hashtable_delete_node(HashTable *ht, HashNode *n)
+{
+    HashNode *ret;
+
+    if (NULL != n->nPrev) {
+        n->nPrev->nNext = n->nNext;
+    } else {
+        uint32_t index;
+
+        index = n->hash & ht->mask;
+        ht->nodes[index] = n->nNext;
+    }
+    if (NULL != n->nNext) {
+        n->nNext->nPrev = n->nPrev;
+    }
+    if (NULL != n->gPrev) {
+        n->gPrev->gNext = n->gNext;
+    } else {
+        ht->gHead = n->gNext;
+    }
+    if (NULL != n->gNext) {
+        n->gNext->gPrev = n->gPrev;
+    } else {
+        ht->gTail = n->gPrev;
+    }
+    --ht->count;
+    if (NULL != ht->value_dtor) {
+        ht->value_dtor(n->data);
+    }
+    if (NULL != ht->key_dtor) {
+        ht->key_dtor((void *) n->key);
+    }
+    ret = n->gNext;
+    free(n);
+
+    return ret;
+}
+#endif
+
 /**
  * Initialize an iterator to loop on the values of an HashTable
  *
@@ -869,7 +909,8 @@ void hashtable_to_iterator(Iterator *it, HashTable *ht)
         hashtable_iterator_current,
         hashtable_iterator_next, hashtable_iterator_previous,
         hashtable_iterator_is_valid,
-        NULL
+        NULL,
+        (iterator_count_t) hashtable_size, (iterator_member_t) _hashtable_contains, NULL
     );
 }
 #endif /* !WITHOUT_ITERATOR */

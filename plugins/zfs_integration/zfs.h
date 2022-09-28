@@ -8,35 +8,49 @@
 # define ZFS_MAX_DATASET_NAME_LEN MAXPATHLEN
 #endif /* !ZFS_MAX_DATASET_NAME_LEN */
 
-// HACK: this constant is intended to provide a non-random and consistent buffer size for pool,
-// filesystem, snapshot, bookmark names to "consumers"
+// HACK: this constant is intended to provide a non-random and consistent buffer size for pool, filesystem, snapshot, bookmark names to "consumers"
 #define ZFS_MAX_NAME_LEN 256
 
+typedef enum {
+    UZFS_TYPE_POOL,
+    UZFS_TYPE_FIRST = UZFS_TYPE_POOL,
+    UZFS_TYPE_FILESYSTEM,
+    UZFS_TYPE_SNAPSHOT,
+    UZFS_TYPE_LAST = UZFS_TYPE_SNAPSHOT,
+} uzfs_type_t;
+
+typedef enum {
+    UZFS_LOCATION_SAME,
+    UZFS_LOCATION_CHILD,
+    UZFS_LOCATION_NONE,
+} uzfs_location_t;
+
 typedef struct uzfs_lib_t uzfs_lib_t;
-typedef struct uzfs_fs_t uzfs_fs_t;
-typedef struct uzfs_pool_t uzfs_pool_t;
+typedef struct uzfs_ptr_t uzfs_ptr_t;
 
 uzfs_lib_t *uzfs_init(char **);
 void uzfs_fini(uzfs_lib_t *);
 
+void uzfs_close(uzfs_ptr_t **);
+uzfs_ptr_t *uzfs_from_name(uzfs_lib_t *, const char *, uzfs_type_t);
+
+const char *uzfs_get_name(uzfs_ptr_t *);
+
 bool uzfs_is_fs(const char *);
-bool uzfs_same_fs(uzfs_fs_t *, uzfs_fs_t *);
-bool uzfs_same_pool(uzfs_fs_t *, uzfs_fs_t *);
+uzfs_type_t uzfs_get_type(uzfs_ptr_t *);
+uzfs_ptr_t *uzfs_pool_from_fs(uzfs_ptr_t *);
+bool uzfs_same_fs(uzfs_ptr_t *, uzfs_ptr_t *);
+bool uzfs_same_pool(uzfs_ptr_t *, uzfs_ptr_t *);
+uzfs_ptr_t *uzfs_fs_from_file(uzfs_lib_t *, const char *);
 
-void uzfs_pool_close(uzfs_pool_t *);
-uzfs_pool_t *uzfs_pool_from_fs(uzfs_fs_t *);
-uzfs_pool_t *uzfs_pool_from_name(uzfs_lib_t *, const char *);
-const char *uzfs_pool_get_name(uzfs_pool_t *);
+bool uzfs_filesystem_destroy(uzfs_ptr_t **, char **);
+bool uzfs_rollback(uzfs_ptr_t *, uzfs_ptr_t *, bool, char **);
+bool uzfs_snapshot(uzfs_ptr_t *, const char *, bool, char *, size_t, bool, char **);
+bool uzfs_iter_snapshots(uzfs_ptr_t *, bool (*)(uzfs_ptr_t *, void *, char **), void *, char **);
 
-void uzfs_fs_close(uzfs_fs_t *);
-uzfs_fs_t *uzfs_fs_from_file(uzfs_lib_t *, const char *);
-uzfs_fs_t *uzfs_fs_from_name(uzfs_lib_t *, const char *);
-const char *uzfs_fs_get_name(uzfs_fs_t *);
+bool uzfs_get_prop(uzfs_ptr_t *, const char *, char *, size_t);
+bool uzfs_get_prop_numeric(uzfs_ptr_t *, const char *, uint64_t *);
+bool uzfs_set_prop(uzfs_ptr_t *, const char *, const char *, char **);
+bool uzfs_set_prop_numeric(uzfs_ptr_t *, const char *, uint64_t, char **);
 
-bool uzfs_snapshot(uzfs_fs_t *, const char *, bool, char *, size_t, bool, char **);
-
-bool uzfs_fs_prop_get(uzfs_fs_t *, const char *, char *, size_t);
-bool uzfs_fs_prop_set(uzfs_fs_t *, const char *, const char *, char **);
-
-bool uzfs_fs_prop_get_numeric(uzfs_fs_t *, const char *, uint64_t *);
-bool uzfs_fs_prop_set_numeric(uzfs_fs_t *, const char *, uint64_t, char **);
+uzfs_location_t uzfs_depth(uzfs_ptr_t *, uzfs_ptr_t *);

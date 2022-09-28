@@ -10,7 +10,7 @@ enum {
 };
 
 typedef struct {
-    uzfs_fs_t *fs;
+    uzfs_ptr_t *fs;
     const char *path;
 } path_to_check_t;
 

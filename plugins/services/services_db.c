@@ -81,8 +81,8 @@ static package_t *package_create(const char *name, char **error)
     if (NULL == (pkg = malloc(sizeof(*pkg)))) {
         set_malloc_error(error, sizeof(*pkg));
     } else {
-        dlist_init(&pkg->scripts, NULL);
-        dlist_init(&pkg->rshlibs, NULL);
+        dlist_init(&pkg->scripts, NULL, NULL);
+        dlist_init(&pkg->rshlibs, NULL, NULL);
         pkg->name = strdup(name);
     }
 
@@ -106,7 +106,7 @@ static void provide_destroy(DList *scripts)
 static void dlist_insert_unique(DList *list, CmpFunc cmpfn, void *data)
 {
     if (NULL == dlist_find_first(list, cmpfn, data)) {
-        dlist_append(list, data);
+        dlist_append(list, data, NULL);
     }
 }
 
@@ -117,7 +117,7 @@ services_db_t *services_db_create(char **error)
     if (NULL == (db = malloc(sizeof(*db)))) {
         set_malloc_error(error, sizeof(*db));
     } else {
-        dlist_init(&db->roots, NULL);
+        dlist_init(&db->roots, NULL, NULL);
         hashtable_ascii_cs_init(&db->scripts, NULL, NULL, (DtorFunc) script_destroy);
         hashtable_ascii_cs_init(&db->keywords, NULL, NULL, (DtorFunc) keyword_destroy);
         hashtable_ascii_cs_init(&db->provides, (DupFunc) strdup, (DtorFunc) free, (DtorFunc) provide_destroy);
@@ -252,7 +252,7 @@ bool services_db_scan_system(struct pkgdb *pkgdb, services_db_t *db, char **erro
         for (iterator_first(&it); iterator_is_valid(&it, NULL, &script); iterator_next(&it)) {
             if (dlist_empty(&script->parents)) {
 //                 debug("[ROOT] %s", script->name);
-                dlist_append(&db->roots, script);
+                dlist_append(&db->roots, script, NULL);
             }
         }
         iterator_close(&it);
@@ -325,12 +325,12 @@ void services_db_rcorder_iter(services_db_t *db, rcorder_options_t *ro, void (*c
 
 static void handle_before(services_db_t *UNUSED(db), rc_d_script_t *script, const char *token)
 {
-    dlist_append(&script->befores, strdup(token));
+    dlist_append(&script->befores, strdup(token), NULL);
 }
 
 static void handle_require(services_db_t *UNUSED(db), rc_d_script_t *script, const char *token)
 {
-    dlist_append(&script->requires, strdup(token));
+    dlist_append(&script->requires, strdup(token), NULL);
 }
 
 static void handle_provide(services_db_t *db, rc_d_script_t *script, const char *token)
@@ -343,11 +343,11 @@ static void handle_provide(services_db_t *db, rc_d_script_t *script, const char 
     if (!hashtable_quick_get(&db->provides, h, token, &scripts)) {
         scripts = malloc(sizeof(*scripts));
         assert(NULL != scripts);
-        dlist_init(scripts, NULL);
+        dlist_init(scripts, NULL, NULL);
         put = hashtable_quick_put(&db->provides, HT_PUT_ON_DUP_KEY_PRESERVE, h, strdup(token), scripts, NULL);
         assert(put);
     }
-    put = dlist_append(scripts, script);
+    put = dlist_append(scripts, script, NULL);
     assert(put);
     (void) put; // quiet warning variable 'put' set but not used when assert is turned off
 }
@@ -362,15 +362,15 @@ static void handle_keyword(services_db_t *db, rc_d_script_t *script, const char 
     if (!hashtable_quick_get(&db->keywords, h, token, &kw)) {
         kw = malloc(sizeof(*kw));
         assert(NULL != kw);
-        dlist_init(&kw->scripts, NULL);
+        dlist_init(&kw->scripts, NULL, NULL);
         kw->name = strdup(token);
         put = hashtable_quick_put(&db->keywords, HT_PUT_ON_DUP_KEY_PRESERVE, h, kw->name, kw, NULL);
         assert(put);
     }
-    put = dlist_append(&kw->scripts, script);
+    put = dlist_append(&kw->scripts, script, NULL);
     assert(put);
     (void) put; // quiet warning variable 'put' set but not used when assert is turned off
-    dlist_append(&script->keywords, kw);
+    dlist_append(&script->keywords, kw, NULL);
 }
 
 static const struct {
@@ -473,7 +473,7 @@ static bool associate_package_to_script(rc_d_script_t *script, package_t *pkg, c
 
     ok = false;
     do {
-        if (!dlist_append(&pkg->scripts, script)) {
+        if (!dlist_append(&pkg->scripts, script, NULL)) {
             set_generic_error(error, "linking package '%s' to script '%s' failed", pkg->name, script->name);
             break;
         }
@@ -581,11 +581,11 @@ static rc_d_script_t *register_script(services_db_t *db, const char *name, const
     script->package = NULL;
     script->path = strdup(path);
     script->name = script->path + strlen(script->path) - strlen(name);
-    dlist_init(&script->befores, NULL);
-    dlist_init(&script->parents, NULL);
-    dlist_init(&script->requires, NULL);
-    dlist_init(&script->keywords, NULL);
-    dlist_init(&script->children, NULL);
+    dlist_init(&script->befores, NULL, NULL);
+    dlist_init(&script->parents, NULL, NULL);
+    dlist_init(&script->requires, NULL, NULL);
+    dlist_init(&script->keywords, NULL, NULL);
+    dlist_init(&script->children, NULL, NULL);
     put = hashtable_put(&db->scripts, HT_PUT_ON_DUP_KEY_PRESERVE, script->name, script, NULL);
     assert(put);
     (void) put; // quiet warning variable 'put' set but not used when assert is turned off
