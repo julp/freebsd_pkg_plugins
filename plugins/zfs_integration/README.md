@@ -22,6 +22,24 @@ pkg_pre_upgrade_2021-09-11_15:06:25 -      -          40.7M 2021-09-11 15:06
 pkg_pre_upgrade_2021-09-14_16:21:24 -      -          41.3M 2021-09-14 16:21
 ```
 
+## Current status
+
+| - | BE sub-implementation | "raw ZFS" sub-implementation |
+|---|-----------------------|------------------------------|
+| Used under the hood | libbe | libzfs (FreeBSD sources required) |
+| Snapshots creation | yes (BE) | yes |
+| Rollback | yes | no(t yet) |
+| Tested? | yes (actively used) | not really |
+| Pruning (`RETENTION` option) | yes | yes |
+
+Pending issues with "raw ZFS" (ideas and other suggestions welcome):
+
+* handling the possible multiple file systems (ie if / + /usr/local + /var/db/pkg are not on the same filesystem)
+* recursivity (when to enable it or not)
+* rollback:
+  + the snapshot needs to be promoted
+  + how to tell the system to start from it? Issue an equivalent of `zpool set bootfs=...` like BE does? If so, again, what will happen if the system is split on several filesystems?
+
 ## Configuration
 
 Note: keys are case sensitive, they have to be uppercased in ```\`pkg config PLUGINS_CONF_DIR\`/zint.conf```
