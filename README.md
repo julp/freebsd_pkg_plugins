@@ -15,7 +15,7 @@
 
 optional:
 
-* re2c >= 2.0.0 (note: not available in FreeBSD's ports but you can use the files from usr/ports/devel/re2c/) (history)
+* re2c >= 2.0.0 (history)
 
 ## Installation
 
@@ -53,7 +53,7 @@ EOF
 
 ## Plugins
 
-* zint (zfs_integration): snapshots (via be or raw ZFS - other filesystems not supported) before `pkg upgrade`
+* zint (zfs_integration): snapshots (via be or "raw ZFS" - other filesystems not supported) before pkg operations (default is upgrade and autoremove)
 * services: manages services from pkg, stop them before deletion and restart them after upgrade (of themselves or a shlib dependency)
 * history: keep tracks of all the pkg install/delete/upgrade/autoremove commands you run with the operations on concerned packages and a queryable database
 
