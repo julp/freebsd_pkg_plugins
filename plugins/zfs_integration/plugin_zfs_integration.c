@@ -225,13 +225,13 @@ static int pkg_zint_main(int argc, char **argv)
                     break;
                 }
                 if (!dry_run) {
-#if 0
+#ifndef DEBUG
                     if (!method->rollback_to(last->name, method_data, temporary, &error)) {
                         break;
                     }
 #else
                     debug("rollback disabled (testing/safety)");
-#endif
+#endif /* !DEBUG */
                 }
                 fprintf(stderr, "system %s rollbacked on '%s' (from '%s')\n", dry_run ? "would be" : "was", last->name, hook_to_name(last->hook));
             }
