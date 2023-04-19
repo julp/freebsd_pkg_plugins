@@ -1,5 +1,5 @@
 PORTNAME=	pkg_zint
-PORTVERSION=	0.2.1
+PORTVERSION=	0.4.0
 #PORTREVISION=	1
 CATEGORIES=	ports-mgmt
 
@@ -14,7 +14,7 @@ CMAKE_ARGS=	-DPLUGINS:STRING=zint
 USE_GITHUB=	yes
 GH_ACCOUNT=	julp
 GH_PROJECT=	freebsd_pkg_plugins
-GH_TAGNAME=	618fa7b
+GH_TAGNAME=	7769c7e
 
 PLIST_FILES=	lib/pkg/zint.so
 
