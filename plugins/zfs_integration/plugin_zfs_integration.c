@@ -226,7 +226,7 @@ static int pkg_zint_main(int argc, char **argv)
                 }
                 if (!dry_run) {
 #ifndef DEBUG
-                    if (!method->rollback_to(last->name, method_data, temporary, &error)) {
+                    if (!method->rollback_to(last, method_data, temporary, &error)) {
                         break;
                     }
 #else
