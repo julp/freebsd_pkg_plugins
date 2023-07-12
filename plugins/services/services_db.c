@@ -530,13 +530,7 @@ static bool pkg_from_rc_d_script(struct pkgdb *pkg_db, services_db_t *db, rc_d_s
             while (EPKG_OK == pkg_shlibs_required(pkg, &shlib_name)) {
 #else
             /* pkg >= 1.18 */
-# ifndef HAVE_PKG_ATTR
-            // pkg < 1.20
-            get_stringlist(pkg, PKG_SHLIBS_REQUIRED, &sl);
-# else
-            // pkg >= 1.20
             get_stringlist(pkg, PKG_ATTR_SHLIBS_REQUIRED, &sl);
-# endif /* HAVE_PKG_ATTR */
             slit = pkg_stringlist_iterator(sl);
             while (NULL != (shlib_name = pkg_stringlist_next(slit))) {
 #endif /* pkg_shlibs_required */
