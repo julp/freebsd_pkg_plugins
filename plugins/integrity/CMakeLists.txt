@@ -1,0 +1,27 @@
+cmake_minimum_required(VERSION 2.8.3...3.20.5)
+
+set(
+    INTEGRITY_INCLUDE_DIRECTORIES
+    ${PROJECT_SOURCE_DIR}/error
+    ${PROJECT_SOURCE_DIR}/kissc
+)
+
+set(
+    INTEGRITY_LIBRARIES
+    $<TARGET_OBJECTS:error>
+)
+
+set(
+    INTEGRITY_SOURCES
+    plugin_integrity.c
+    ${PROJECT_SOURCE_DIR}/shared/compat.c
+)
+
+pkg_plugin(
+    INSTALL
+    NAME integrity
+    VERSION "0.0.1"
+    SOURCES ${INTEGRITY_SOURCES}
+    LIBRARIES ${INTEGRITY_LIBRARIES}
+    INCLUDE_DIRECTORIES ${INTEGRITY_INCLUDE_DIRECTORIES}
+)
