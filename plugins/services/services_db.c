@@ -517,7 +517,7 @@ static bool pkg_from_rc_d_script(struct pkgdb *pkg_db, services_db_t *db, rc_d_s
 #endif /* pkg_shlibs_required */
 
             shlib_name = NULL;
-            pkg_get_string(pkg, PKG_NAME, pkg_name);
+            get_string(pkg, PKG_ATTR_NAME, &pkg_name);
             if (NULL == (script_package = package_retrieve(db, pkg_name, error))) {
                 break;
             }
@@ -530,7 +530,13 @@ static bool pkg_from_rc_d_script(struct pkgdb *pkg_db, services_db_t *db, rc_d_s
             while (EPKG_OK == pkg_shlibs_required(pkg, &shlib_name)) {
 #else
             /* pkg >= 1.18 */
-            pkg_get_stringlist(pkg, PKG_SHLIBS_REQUIRED, sl); // WTF?!? pkg_attr vs pkg_list (enum): how PKG_SHLIBS_REQUIRED doesn't conflict with PKG_MESSAGE?!?
+# ifndef HAVE_PKG_ATTR
+            // pkg < 1.20
+            get_stringlist(pkg, PKG_SHLIBS_REQUIRED, &sl);
+# else
+            // pkg >= 1.20
+            get_stringlist(pkg, PKG_ATTR_SHLIBS_REQUIRED, &sl);
+# endif /* HAVE_PKG_ATTR */
             slit = pkg_stringlist_iterator(sl);
             while (NULL != (shlib_name = pkg_stringlist_next(slit))) {
 #endif /* pkg_shlibs_required */
@@ -544,7 +550,7 @@ static bool pkg_from_rc_d_script(struct pkgdb *pkg_db, services_db_t *db, rc_d_s
                     while (EPKG_OK == pkgdb_it_next(it, &shlib_pkg, PKG_LOAD_BASIC)) {
                         package_t *shlib_package;
 
-                        pkg_get_string(shlib_pkg, PKG_NAME, name);
+                        get_string(shlib_pkg, PKG_ATTR_NAME, &name);
                         assert(NULL != name);
                         shlib_package = package_retrieve(db, name, error);
                         assert(NULL != shlib_package);

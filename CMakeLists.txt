@@ -12,7 +12,7 @@ set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -DDEBUG")
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR})
 
-set(AVAILABLE_PLUGINS "history" "verbose" "services" "zint")
+set(AVAILABLE_PLUGINS "history" "verbose" "services" "zint" "integrity")
 if(DEFINED PLUGINS)
     separate_arguments(PLUGINS)
 endif(DEFINED PLUGINS)

@@ -76,6 +76,27 @@ macro(pkg_plugin)
     endif(HAVE_PKG_SHLIBS_REQUIRED)
     # </pkg 1.18>
 
+    # <pkg 1.20>
+    # PKG_* constants were renamed to PKG_ATTR_* (commit d9c65f6). See: https://github.com/freebsd/pkg/commit/d9c65f6896cf264bcf9926d553c32d92ddfb1ffb
+    include(CheckSourceCompiles)
+    list(APPEND CMAKE_REQUIRED_INCLUDES "${pkg_INCLUDE_DIR}")
+    check_source_compiles(C [=[
+#include <stdlib.h>
+#include <pkg.h>
+
+int main(void)
+{
+    pkg_attr origin = PKG_ATTR_ORIGIN;
+
+    return EXIT_SUCCESS;
+}
+    ]=] HAVE_PKG_ATTR)
+
+    if(HAVE_PKG_ATTR)
+        list(APPEND PKG_PLUGIN_DEFINITIONS "HAVE_PKG_ATTR=1")
+    endif(HAVE_PKG_ATTR)
+    # </pkg 1.20>
+
     set(PKG_PLUGIN_INCLUDE_DIRS )
     list(APPEND PKG_PLUGIN_INCLUDE_DIRS ${PROJECT_SOURCE_DIR})
     list(APPEND PKG_PLUGIN_INCLUDE_DIRS ${PROJECT_BINARY_DIR})

@@ -56,11 +56,18 @@ static int handle_hooks(void *data, struct pkgdb *UNUSED(pkg_db))
             const char *pkg_name, *origin, *version, *old_version, *repo;
 
             change_type = ARRAY_SIZE(change_names) - 2;
-            pkg_get_string(new_pkg, PKG_NAME, pkg_name);
-            pkg_get_string(new_pkg, PKG_ORIGIN, origin);
-            pkg_get_string(new_pkg, PKG_VERSION, version);
-            pkg_get_string_or_null(new_pkg, PKG_OLD_VERSION, &old_version);
-            pkg_get_string(new_pkg, PKG_REPONAME, repo);
+            get_string(new_pkg, PKG_ATTR_NAME, &pkg_name);
+            get_string(new_pkg, PKG_ATTR_ORIGIN, &origin);
+            get_string(new_pkg, PKG_ATTR_VERSION, &version);
+#if 0
+            get_string(new_pkg, PKG_ATTR_OLD_VERSION, &old_version);
+#else
+            old_version = NULL;
+            if (NULL != old_pkg) {
+                get_string(old_pkg, PKG_ATTR_VERSION, &old_version);
+            }
+#endif
+            get_string(new_pkg, PKG_ATTR_REPONAME, &repo);
             if (NULL != old_pkg) {
                 change_type = pkg_version_change_between(new_pkg, old_pkg);
             }

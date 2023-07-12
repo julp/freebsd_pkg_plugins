@@ -342,7 +342,7 @@ static int handle_hooks(void *data, struct pkgdb *pkg_db)
         while (pkg_jobs_iter(jobs, &iter, &new_pkg, &old_pkg, &solved_type)) {
             const char *pkg_name;
 
-            pkg_get_string(new_pkg, PKG_NAME, pkg_name);
+            get_string(new_pkg, PKG_ATTR_NAME, &pkg_name);
             if (PKG_SOLVED_DELETE == solved_type) {
                 services_db_add_services_from_package_to_services_selection(services_db, ss, pkg_name, SERVICE_ACTION_STOP, false);
             }

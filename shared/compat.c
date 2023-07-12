@@ -31,11 +31,28 @@ const pkg_object *pkg_object_find(const pkg_object *object, const char *key)
 }
 #endif /* HAVE_PKG_OBJECT_FIND */
 
-void pkg_get_string_or_null(struct pkg *pkg, pkg_attr attr, const char **value)
+// pkg >= 1.20 dropped pkg_get_string, pkg_get_stringlist and so on (all defined as macros) (commit: 2f040df). See: https://github.com/freebsd/pkg/commit/2f040df43d9d4eb25872deb10cdf1572655eb00f
+void get_stringlist(struct pkg *pkg, pkg_attr attr, struct pkg_stringlist **value)
 {
     assert(NULL != pkg);
     assert(NULL != value);
+    assert(attr >= 0 && attr <= PKG_ATTR_NUM_FIELDS);
 
+    *value = NULL;
+#ifdef pkg_get_stringlist
+    pkg_get_stringlist(pkg, attr, *value);
+#else
+    pkg_get(pkg, attr, value);
+#endif /* !pkg_get_stringlist */
+}
+
+void get_string(struct pkg *pkg, pkg_attr attr, const char **value)
+{
+    assert(NULL != pkg);
+    assert(NULL != value);
+    assert(attr >= 0 && attr <= PKG_ATTR_NUM_FIELDS);
+
+    *value = NULL;
 #ifdef pkg_get_string
     {
         /**
@@ -50,6 +67,10 @@ void pkg_get_string_or_null(struct pkg *pkg, pkg_attr attr, const char **value)
         *value = e->string;
     }
 #else
-    pkg_get(pkg, attr, *value);
+    // there was pkg_get(struct pkg *pkg, pkg_attr attr, const char *value)
+    // which was then replaced by the macro pkg_get_string(struct pkg *pkg, pkg_attr attr, const char *value)
+    // before reintroducing a new version of pkg_get(struct pkg *pkg, pkg_attr attr, const char **value) - note the **
+    // ?
+    pkg_get(pkg, attr, value);
 #endif /* pkg_get_string */
 }

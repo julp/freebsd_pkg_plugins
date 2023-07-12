@@ -517,11 +517,11 @@ static int handle_hooks(void *data, struct pkgdb *UNUSED(_db))
         while (pkg_jobs_iter(jobs, &iter, &new_pkg, &old_pkg, &solved_type)) {
             const char *name, *origin, *new_version, *old_version, *repo;
 
-            pkg_get_string(new_pkg, PKG_NAME, name);
-            pkg_get_string(new_pkg, PKG_ORIGIN, origin);
-            pkg_get_string(new_pkg, PKG_VERSION, new_version);
-            pkg_get_string_or_null(new_pkg, PKG_OLD_VERSION, &old_version);
-            pkg_get_string(new_pkg, PKG_REPONAME, repo);
+            get_string(new_pkg, PKG_ATTR_NAME, &name);
+            get_string(new_pkg, PKG_ATTR_ORIGIN, &origin);
+            get_string(new_pkg, PKG_ATTR_VERSION, &new_version);
+            get_string(new_pkg, PKG_ATTR_OLD_VERSION, &old_version); // TODO: PKG_ATTR_OLD_VERSION n'est plus valable ?
+            get_string(new_pkg, PKG_ATTR_REPONAME, &repo);
             switch (job_type) { // TODO: plutôt considérer solved_type ?
                 case PKG_JOBS_INSTALL:
                     operation = PKG_OP_INSTALL;
