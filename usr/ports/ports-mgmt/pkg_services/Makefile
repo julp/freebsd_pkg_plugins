@@ -1,6 +1,6 @@
 PORTNAME=	pkg_services
 PORTVERSION=	0.6.1
-#PORTREVISION=	1
+PORTREVISION=	1
 CATEGORIES=	ports-mgmt
 
 MAINTAINER=	not@an.address
@@ -14,7 +14,7 @@ CMAKE_ARGS=	-DPLUGINS:STRING=services
 USE_GITHUB=	yes
 GH_ACCOUNT=	julp
 GH_PROJECT=	freebsd_pkg_plugins
-GH_TAGNAME=	8f721f7
+GH_TAGNAME=	1f72899
 
 PLIST_FILES=	lib/pkg/services.so
 
