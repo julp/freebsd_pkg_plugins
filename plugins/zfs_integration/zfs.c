@@ -37,6 +37,13 @@
     zfs_iter_snapshots_sorted(zhp, callback, data)
 #endif /* FreeBSD < 12.2 */
 
+#if __FreeBSD_version < 1400000
+# define zfs_is_shared(zhp, _where, _protocols) \
+    zfs_is_shared(zhp)
+# define zfs_unshareall(zhp, _protocols) \
+    zfs_unshareall(zhp)
+#endif /* FreeBSD < 14.0.0 */
+
 // NOTE: functions are prefixed of a 'u' for "userland" to avoid clashes with actual (lib)zfs functions
 
 typedef void (*uzfs_close_callback_t)(void *ptr);
@@ -533,8 +540,8 @@ bool uzfs_filesystem_destroy(uzfs_ptr_t **fs, char **error)
             set_generic_error(error, "can't acquire a valid libzfs_handle_t");
             break;
         }
-        if (zfs_is_shared(fh)) {
-            if (0 != zfs_unshareall(fh)) {
+        if (zfs_is_shared(fh, NULL, NULL)) {
+            if (0 != zfs_unshareall(fh, NULL)) {
                 set_zfs_error(error, lh, "zfs_unshareall %s failed", zfs_get_name(fh));
                 break;
             }
