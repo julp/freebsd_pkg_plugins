@@ -189,7 +189,7 @@ static bool uzfs_dataset_get_prop(void *ptr, const char *name, char *value, size
 
         fh = (zfs_handle_t *) ptr;
         if (NULL != strchr(name, ':')) {
-            char *v;
+            const char *v;
             nvlist_t *props, *propval;
 
             if (NULL == (props = zfs_get_user_props(fh))) {

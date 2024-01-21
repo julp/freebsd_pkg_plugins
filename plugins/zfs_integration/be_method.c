@@ -40,7 +40,8 @@ static bool be_get_prop_numeric(nvpair_t *be, const char *property, uint64_t *cr
     ok = false;
     *creation = 0;
     do {
-        char *endptr, *v;
+        char *endptr;
+        const char *v;
         nvlist_t *dsprops;
         unsigned long long value;
 
