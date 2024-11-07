@@ -75,7 +75,7 @@ static int real_handle_hooks(pkg_plugin_hook_t UNUSED(hook), void *data, struct 
 
 static int handle_event(void *UNUSED(data), struct pkg_event *event)
 {
-    if (PKG_EVENT_INTEGRITYCHECK_CONFLICT == event->type) {
+    if (PKG_EVENT_FILE_MISMATCH == event->type) {
         // const char *name;
 
         // get_string(event->e_file_mismatch.pkg, PKG_NAME, &name);
