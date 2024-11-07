@@ -55,6 +55,7 @@ static int handle_hooks(void *data, struct pkgdb *UNUSED(pkg_db))
             int change_type;
             const char *pkg_name, *origin, *version, *old_version, *repo;
 
+            pkg_name = origin = version = old_version = repo = NULL;
             change_type = ARRAY_SIZE(change_names) - 2;
             get_string(new_pkg, PKG_ATTR_NAME, &pkg_name);
             get_string(new_pkg, PKG_ATTR_ORIGIN, &origin);
@@ -62,7 +63,6 @@ static int handle_hooks(void *data, struct pkgdb *UNUSED(pkg_db))
 #if 0
             get_string(new_pkg, PKG_ATTR_OLD_VERSION, &old_version);
 #else
-            old_version = NULL;
             if (NULL != old_pkg) {
                 get_string(old_pkg, PKG_ATTR_VERSION, &old_version);
             }
@@ -71,7 +71,7 @@ static int handle_hooks(void *data, struct pkgdb *UNUSED(pkg_db))
             if (NULL != old_pkg) {
                 change_type = pkg_version_change_between(new_pkg, old_pkg);
             }
-            pkg_plugin_info(self, "%s/%s (from %s) %s => %s: job = %s, change = %s, solve = %s", origin, pkg_name, repo, NULL == old_version ? "-" : old_version, version, job_names[job_type], change_names[change_type], solve_names[solved_type]);
+            pkg_plugin_info(self, "[%s] %s (%s) %s => %s: job = %s, change = %s, solve = %s", repo, pkg_name, origin, NULL == old_version ? "-" : old_version, version, job_names[job_type], change_names[change_type], solve_names[solved_type]);
         }
         status = EPKG_OK;
     } while (false);
