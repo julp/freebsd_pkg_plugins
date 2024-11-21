@@ -47,6 +47,7 @@ PLUGINS: [
     zint,
     history,
     services,
+    integrity,
 ]
 EOF
 ```
@@ -56,5 +57,10 @@ EOF
 * zint (zfs_integration): snapshots (via be or "raw ZFS" - other filesystems not supported) before pkg operations (default is upgrade and autoremove)
 * services: manages services from pkg, stop them before deletion and restart them after upgrade (of themselves or a shlib dependency)
 * history: keep tracks of all the pkg install/delete/upgrade/autoremove commands you run with the operations on concerned packages and a queryable database
+* integrity (experimental): checks integrity of deleted (and upgraded) files
 
 See README.md in subdirectory of plugins/ for further details of each one of these.
+
+## Known issue
+
+You may have to disable your plugins first in order to upgrade them when pkg is also updated.

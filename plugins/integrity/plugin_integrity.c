@@ -12,57 +12,51 @@ static char DESCRIPTION[] = "Automated integrity checks";
 static int real_handle_hooks(pkg_plugin_hook_t UNUSED(hook), void *data, struct pkgdb *db)
 {
     bool ok;
+    void *iter;
     char *error;
-    pkg_error_t status;
+    int solved_type;
+    // pkg_jobs_t job_type;
+    struct pkg_jobs *jobs;
+    struct pkg *new_pkg, *old_pkg;
 
     ok = true;
+    iter = NULL;
     error = NULL;
-    status = EPKG_FATAL;
-    do {
-        void *iter;
-        int solved_type;
-        // pkg_jobs_t job_type;
-        struct pkg_jobs *jobs;
-        struct pkg *new_pkg, *old_pkg;
+    jobs = (struct pkg_jobs *) data;
+    // job_type = pkg_jobs_type(jobs);
+    while (ok && pkg_jobs_iter(jobs, &iter, &new_pkg, &old_pkg, &solved_type)) {
+        if (PKG_SOLVED_DELETE == solved_type || PKG_SOLVED_UPGRADE_REMOVE == solved_type || PKG_SOLVED_UPGRADE == solved_type) {
+            const char *name;
+            struct pkgdb_it *it;
 
-        iter = NULL;
-        jobs = (struct pkg_jobs *) data;
-        // job_type = pkg_jobs_type(jobs);
-        while (pkg_jobs_iter(jobs, &iter, &new_pkg, &old_pkg, &solved_type)) {
-            if (PKG_SOLVED_DELETE == solved_type || PKG_SOLVED_UPGRADE_REMOVE == solved_type || PKG_SOLVED_UPGRADE == solved_type) {
-                const char *name;
-                struct pkgdb_it *it;
-
-                pkg_get(old_pkg, PKG_ATTR_NAME, &name);
-                if (NULL == (it = pkgdb_query(db, name, MATCH_EXACT))) {
-                    set_generic_error(&error, "pkgdb_query failed");
-                    break;
-                }
-                while (EPKG_OK == pkgdb_it_next(it, &old_pkg, PKG_LOAD_FILES)) {
-                    if (ok &= EPKG_OK != pkg_test_filesum(old_pkg)) {
-                        //status = EPKG_TODO;
-                        pkg_printf("WARNING: checksum failed for package %s", name);
-#ifdef DEBUG
-                    } else {
-                        debug("checksum OK for package %s", name);
-#endif /* DEBUG */
-                    }
-                }
-                pkgdb_it_free(it);
+            name = NULL;
+            // NOTE: on PKG_SOLVED_DELETE old_pkg is NULL, the deleted package is new_pkg
+            // TODO: struct pkg *pkg = NULL == old_pkg ? new_pkg : old_pkg; ?
+            assert(NULL != new_pkg);
+            pkg_get(new_pkg, PKG_ATTR_NAME, &name);
+            assert(NULL != name);
+            if (NULL == (it = pkgdb_query(db, name, MATCH_EXACT))) {
+                ok = false;
+                set_generic_error(&error, "pkgdb_query failed");
+                break;
             }
+            while (EPKG_OK == pkgdb_it_next(it, &new_pkg, PKG_LOAD_FILES)) {
+                if (/*(ok &= (*/EPKG_OK == pkg_test_filesum(new_pkg)/*))*/) {
+                    debug("checksum OK for package %s", name);
+                } else {
+                    pkg_printf("WARNING: checksum failed for package %s", name);
+                }
+            }
+            pkgdb_it_free(it);
         }
-        if (NULL != error) {
-            break;
-        }
-        status = EPKG_OK;
-    } while (false);
-    // TODO: if (!ok)
-    if (EPKG_FATAL == status && NULL != error) {
+    }
+    if (!ok && NULL != error) {
         pkg_plugin_error(self, "%s", error);
         error_free(&error);
     }
 
-    return status;
+    // this is only informative (for now)
+    return EPKG_OK;
 }
 
 #define HOOK(value, event) \
