@@ -20,7 +20,18 @@ set(ZFS_SOURCES
     raw_zfs_method.c
 )
 
+# NOTE: use the list from /usr/src/lib/libbe/Makefile
 set(ZFS_INCLURE_DIRS
+    # FreeBSD 15
+    /usr/src/sys/contrib/openzfs/include
+    /usr/src/sys/contrib/openzfs/include/os/freebsd
+    /usr/src/sys/contrib/openzfs/lib/libspl/include
+    /usr/src/sys/contrib/openzfs/lib/libspl/include/os/freebsd
+    /usr/src/sys/contrib/openzfs/lib/libzfs
+    /usr/src/sys/contrib/openzfs/lib/libzpool/include
+    /usr/src/sys
+    /usr/src/cddl/compat/opensolaris/include
+    /usr/src/sys/contrib/openzfs/include/os/freebsd/spl/sys/ccompile.h
     # FreeBSD 13
     /usr/src/sys/contrib/openzfs/include/ # libzfs.h + libuutil.h + libzfs_core.h + libnvpair.h + zfs_prop.h
     /usr/src/sys/contrib/openzfs/lib/libspl/include/ # umem.h + sys/types.h
